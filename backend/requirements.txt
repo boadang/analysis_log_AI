@@ -1,0 +1,39 @@
+# backend/requirements.txt
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+
+# Database
+sqlalchemy==2.0.35
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+motor==3.6.0
+pymongo==4.8.0
+alembic==1.13.2
+
+# Auth
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+fastapi-users[sqlalchemy2]==13.0.0
+
+# AI - Ollama
+ollama==0.3.3
+
+# Background tasks
+celery[redis]==5.4.0
+redis==5.0.8
+flower==2.0.1
+
+# PDF Report
+weasyprint==62.2
+jinja2==3.1.4
+
+# Utils
+python-dotenv==1.0.1
+loguru==0.7.2
+pydantic-settings==2.5.2
+email-validator==2.2.0
+
+# Optional: parser log (nếu không tự viết)
+# fortigate-log-parser==0.2.3
+# bạn có thể comment dòng này nếu tự viết parser
