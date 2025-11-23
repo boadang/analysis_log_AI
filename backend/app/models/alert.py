@@ -1,6 +1,7 @@
 # backend/app/models/alert.py
 from sqlalchemy import Column, Integer, String, DateTime, Numeric, ForeignKey, func
 from app.database.postgres import Base
+from sqlalchemy.orm import relationship
 
 class Alert(Base):
     __tablename__ = "alerts"
@@ -17,3 +18,5 @@ class Alert(Base):
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+    
+    assignee = relationship("User", back_populates="assigned_alerts")

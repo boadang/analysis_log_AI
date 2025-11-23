@@ -1,5 +1,6 @@
 # backend/app/models/analysis.py
 from sqlalchemy import Column, Integer, String, DateTime, ARRAY, func, ForeignKey
+from sqlalchemy.orm import relationship
 from app.database.postgres import Base
 
 class Analysis(Base):

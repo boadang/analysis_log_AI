@@ -2,6 +2,8 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from app.database.postgres import Base
+from .AnalysisJob import Analysis
+from .alert import Alert
 
 class User(Base):
     __tablename__ = "users"
@@ -17,5 +19,5 @@ class User(Base):
     last_login = Column(DateTime(timezone=True))
 
     # Relationships (nếu cần sau này)
-    created_jobs = relationship("AnalysisJob", back_populates="creator")
+    created_jobs = relationship("Analysis", back_populates="creator")
     assigned_alerts = relationship("Alert", back_populates="assignee")

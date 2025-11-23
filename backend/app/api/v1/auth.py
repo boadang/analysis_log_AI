@@ -12,7 +12,7 @@ from app.database.postgres import SessionLocal
 # ----------------------
 # Router
 # ----------------------
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 # ----------------------
 # Redis for JWT blacklist

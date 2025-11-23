@@ -1,9 +1,8 @@
-from fastapi import FastAPI
-from .api.v1.auth import router as auth_router
-from .database.postgres import SessionLocal  # Ensure database is initialized
-from sqlalchemy import text
+# app.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from backend.app.api.v1 import auth
 
 app = FastAPI(
     title="Ana_FW Log API",
@@ -29,16 +28,12 @@ app.add_middleware(
 # ======================
 # Routers (tách file)
 # ======================
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 
-try:
-    db = SessionLocal()
-    db.execute(text("SELECT 1"))
-    db.close()
-    print("Database connection successful.")
-except Exception as e:
-    print(f"Database connection failed: {e}")
-
+# ======================
+# Test route cơ bản
+# ======================
 @app.get("/")
-def read_root():
-    return {"message": "Welcome to My Application!"}
+async def root():
+    return {"message": "Hello from FastAPI backend!"}
+
