@@ -5,7 +5,7 @@ import { setAuthToken } from "../utils/api";
 const AuthContext = createContext(null);
 
 export default function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // profile object or null
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,9 +30,11 @@ export default function AuthProvider({ children }) {
 
   const login = async (credentials) => {
     const data = await apiLogin(credentials);
+    console.log("Login response data:", data);
     // lưu token
     localStorage.setItem("authToken", data.access_token);
     setAuthToken(data.access_token);
+    console.log("Logged in, token set:", data.access_token);
     // lấy profile
     const profile = await getMe();
     setUser(profile);

@@ -4,22 +4,25 @@ import { useAuth } from '../contexts/AuthContext.jsx';
 import axios from 'axios';
 
 // Component Input chung để giảm trùng lặp
-const Input = ({ type, placeholder, value, onChange, required, label }) => (
-    <div>
-        <label className="sr-only">{label}</label> {/* Hidden label cho accessibility */}
-        <input
-            type={type}
-            placeholder={placeholder}
-            className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-            value={value}
-            onChange={onChange}
-            required={required}
-        />
-    </div>
+const Input = ({ type, placeholder, value, onChange, required, label, name, id }) => (
+  <div>
+    <label htmlFor={id} className="sr-only">{label}</label>
+    <input
+      type={type}
+      placeholder={placeholder}
+      id={id}           // thêm id
+      name={name}       // thêm name
+      value={value}
+      onChange={onChange}
+      required={required}
+      autoComplete={name} // optional nhưng nên đặt
+      className="w-full border border-gray-300 p-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+    />
+  </div>
 );
 
 export default function AuthPage() {
-    const { login } = useAuth();
+    const { user, loading, login } = useAuth();
     const navigate = useNavigate();
     const [isLoginForm, setIsLoginForm] = useState(true);
     const [isLoading, setIsLoading] = useState(false);
@@ -32,10 +35,10 @@ export default function AuthPage() {
 
     // Nếu đã login → redirect
     useEffect(() => {
-        if (localStorage.getItem("authToken")) {
+        if (!loading && user) {
             navigate("/");
         }
-    }, [navigate]);
+    }, [user, loading, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -44,13 +47,15 @@ export default function AuthPage() {
 
         try {
             if (isLoginForm) {
-                await login(loginData);
+                console.log("Submitting login with data:", loginData);
+                const data = await login(loginData);
+                localStorage.setItem("username", data.username);
                 navigate("/");
             } else {
-                await axios.post("http://127.0.0.1:8000/auth/register", registerData);
+                await axios.post("http://127.0.0.1:8000/api/v1/auth/register", registerData);
                 setError("Register successful! Please login.");
                 setIsLoginForm(true);
-                setRegisterData({ username: '', password: '', email: '', fullname: '' });
+                setRegisterData({ username: '', password: '', email: '', full_name: '' });
             }
         } catch (err) {
             setError(err.response?.data?.detail || "An error occurred. Please try again.");
@@ -82,6 +87,8 @@ export default function AuthPage() {
                         {isLoginForm ? (
                             <>
                                 <Input
+                                    id="email"
+                                    name="email"
                                     type="text"
                                     placeholder="Email"
                                     label="Email"
@@ -90,6 +97,8 @@ export default function AuthPage() {
                                     required
                                 />
                                 <Input
+                                    id="password"
+                                    name="password"
                                     type="password"
                                     placeholder="Password"
                                     label="Password"
@@ -101,6 +110,8 @@ export default function AuthPage() {
                         ) : (
                             <>
                                 <Input
+                                    id="username"
+                                    name="username"
                                     type="text"
                                     placeholder="Username"
                                     label="Username"
@@ -109,6 +120,8 @@ export default function AuthPage() {
                                     required
                                 />
                                 <Input
+                                    id="email"
+                                    name="email"
                                     type="email"
                                     placeholder="Email"
                                     label="Email"
@@ -117,6 +130,8 @@ export default function AuthPage() {
                                     required
                                 />
                                 <Input
+                                    id="password"
+                                    name="password"
                                     type="password"
                                     placeholder="Password"
                                     label="Password"
@@ -125,6 +140,8 @@ export default function AuthPage() {
                                     required
                                 />
                                 <Input
+                                    id="full_name"
+                                    name="full_name"
                                     type="text"
                                     placeholder="Full Name"
                                     label="Full Name"

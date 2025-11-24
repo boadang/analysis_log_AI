@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from .api.v1.auth import router as auth_router
+from app.api.v1.auth import router as auth_router
 from .database.postgres import SessionLocal  # Ensure database is initialized
 from sqlalchemy import text
 from fastapi import FastAPI
@@ -15,6 +15,7 @@ app = FastAPI(
 origins = [
     "http://localhost:5173",  # địa chỉ FE dev server (Vite)
     "http://127.0.0.1:5173",  # hoặc localhost
+    "http://localhost:3000",  # nếu bạn dùng React dev server
     # "https://your-frontend-domain.com"  # production
 ]
 
@@ -29,7 +30,7 @@ app.add_middleware(
 # ======================
 # Routers (tách file)
 # ======================
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
 
 try:
     db = SessionLocal()
@@ -42,3 +43,13 @@ except Exception as e:
 @app.get("/")
 def read_root():
     return {"message": "Welcome to My Application!"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",           # module:app
+        host="0.0.0.0",           # cho phép truy cập từ mạng LAN (nếu cần)
+        port=8000,                # ← PORT BẠN MUỐN DÙNG (mặc định 8000)
+        reload=True,              # tự restart khi save code
+        log_level="info"
+    )

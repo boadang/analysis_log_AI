@@ -1,23 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+# backend/app/api/v1/auth.py
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Body
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime
 from loguru import logger
-import redis
 
 from app.models.user import User
-from app.schemas.auth import RegisterSchema, LoginSchema
+from app.schemas.auth import RegisterSchema, LoginSchema, UserRead
 from app.core.security import verify_password, hash_password, create_access_token, verify_access_token
 from app.database.postgres import SessionLocal
 
-# ----------------------
-# Router
-# ----------------------
-router = APIRouter()
-
-# ----------------------
-# Redis for JWT blacklist
-# ----------------------
-r = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 # ----------------------
 # Dependency: DB session
@@ -30,130 +23,120 @@ def get_db():
         db.close()
 
 # ----------------------
-# Dependency: get current user
+# Dependency: get current user (KHÔNG cần Redis)
 # ----------------------
-def get_current_user(authorization: str = Header(...), db: Session = Depends(get_db)) -> User:
-    if not authorization.startswith("Bearer "):
-        logger.warning("Authorization header invalid")
-        raise HTTPException(status_code=401, detail="Authorization header invalid")
+def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc thiếu")
 
     token = authorization.split(" ")[1]
-
-    # Check blacklist
-    if r.get(token):
-        logger.warning("Token đã bị logout")
-        raise HTTPException(status_code=401, detail="Token đã bị logout")
 
     payload = verify_access_token(token)
     user_id = payload.get("sub")
     if not user_id:
-        logger.warning("Token không hợp lệ")
+        logger.warning("Token không chứa sub (user_id)")
         raise HTTPException(status_code=401, detail="Token không hợp lệ")
 
-    user = db.query(User).get(int(user_id))
+    user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
-        logger.warning(f"User id {user_id} không tồn tại")
+        logger.warning(f"User ID {user_id} không tồn tại trong DB")
         raise HTTPException(status_code=401, detail="User không tồn tại")
+
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Tài khoản đã bị khóa")
 
     return user
 
+
 # ----------------------
-# REGISTER
+# REGISTER (chỉ admin hoặc mở cho tất cả tùy bạn)
 # ----------------------
-@router.post("/register")
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(data: RegisterSchema, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(
+    # Kiểm tra trùng username hoặc email
+    existing = db.query(User).filter(
         (User.username == data.username) | (User.email == data.email)
     ).first()
-    if existing_user:
-        logger.info(f"Đăng ký thất bại: {data.email} đã tồn tại")
-        raise HTTPException(status_code=400, detail="User already exists")
+    if existing:
+        raise HTTPException(status_code=400, detail="Username hoặc email đã tồn tại")
 
-    hashed_password = hash_password(data.password)
+    hashed_pw = hash_password(data.password)
     new_user = User(
         username=data.username,
         email=data.email,
-        hashed_password=hashed_password,
-        full_name=data.full_name,
-        role=data.role
+        hashed_password=hashed_pw,
+        full_name=data.full_name or data.username,
+        role=data.role or "user"
     )
 
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    logger.info(f"User {new_user.email} đã được đăng ký thành công")
 
-    return {
-        "status": "success",
-        "user": {
-            "id": new_user.id,
-            "username": new_user.username,
-            "email": new_user.email,
-            "role": new_user.role
-        }
-    }
+    logger.info(f"Đăng ký thành công: {new_user.email} (role: {new_user.role})")
+    return new_user
+
 
 # ----------------------
 # LOGIN
 # ----------------------
 @router.post("/login")
-def login(data: LoginSchema, db: Session = Depends(get_db)):
+def login(data: LoginSchema = Body(...), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == data.email).first()
-    if not user:
-        logger.warning(f"Login thất bại: {data.email} không tồn tại")
-        raise HTTPException(status_code=401, detail="Email không tồn tại")
+    if not user or not verify_password(data.password, user.hashed_password):
+        logger.warning(f"Login thất bại: {data.email}")
+        raise HTTPException(status_code=401, detail="Email hoặc mật khẩu không đúng")
 
-    if not verify_password(data.password, user.hashed_password):
-        logger.warning(f"Login thất bại: {data.email} sai mật khẩu")
-        raise HTTPException(status_code=401, detail="Sai mật khẩu")
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail="Tài khoản đã bị khóa")
 
     # Cập nhật last_login
     user.last_login = datetime.utcnow()
     db.commit()
 
-    token = create_access_token({"sub": str(user.id)})
-    logger.info(f"User {user.email} đã login thành công")
+    # Tạo token (hết hạn 7 ngày)
+    access_token = create_access_token({"sub": str(user.id)})
+
+    logger.info(f"Login thành công: {user.email} (ID: {user.id})")
 
     return {
         "status": "success",
-        "access_token": token,
+        "access_token": access_token,
         "token_type": "bearer",
+        "expires_in": 3600 * 24 * 7,  # 7 ngày
         "user": {
             "id": user.id,
             "username": user.username,
             "email": user.email,
+            "full_name": user.full_name,
             "role": user.role
         }
     }
 
 # ----------------------
-# LOGOUT
+# GET CURRENT USER (/auth/me)
+# ----------------------
+@router.get("/me", response_model=UserRead)
+def me(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+# ----------------------
+# LOGOUT (chỉ xóa token ở client – không cần Redis)
 # ----------------------
 @router.post("/logout")
-def logout(authorization: str = Header(...)):
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Authorization header invalid")
+def logout(current_user: User = Depends(get_current_user)):
+    logger.info(f"User {current_user.email} đã đăng xuất")
 
-    token = authorization.split(" ")[1]
-
-    # Lưu token vào Redis blacklist (TTL = 1 giờ)
-    r.setex(token, timedelta(hours=1), "revoked")
-    logger.info("User đã logout, token bị blacklist")
-
-    return {"status": "success", "message": "Logout thành công"}
-
-# ----------------------
-# GET CURRENT USER
-# ----------------------
-@router.get("/me")
-def me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "role": current_user.role,
-        "is_active": current_user.is_active,
-        "created_at": current_user.created_at,
-        "last_login": current_user.last_login
-    }
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "success",
+            "message": "Đăng xuất thành công!",
+            "detail": "Token đã được đánh dấu xóa ở phía client."
+        },
+        headers={
+            "X-Clear-Auth": "true",           # Frontend bắt header này để xóa token
+            "Clear-Site-Data": "storage"      # Xóa localStorage (mạnh hơn cookie)
+        }
+    )

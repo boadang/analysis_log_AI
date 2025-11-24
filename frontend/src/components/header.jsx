@@ -1,53 +1,52 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function Header() {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [userData, setUserData] = useState(null);
-    const [isMenuOpen, setIsMenuOpen] = useState(false); // State cho hamburger menu
+    const { user, logout } = useAuth();
+    const [isAuthenticated, setAuthenticated] = useState(!!user);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const navigate = useNavigate();
 
+    console.log("Header - isAuthenticated:", isAuthenticated);
+    console.log("Header - user:", user);
+
     useEffect(() => {
-        const token = localStorage.getItem("authToken");
-        if (token) {
-            const username = localStorage.getItem("username");
-            setIsLoggedIn(true);
-            setUserData({ name: username });
+        if (user.username) {
+            console.log("Header - Logged in as:", user.username);
+            setAuthenticated(true);
         }
-    }, []);
+    }, [user]);
 
     const handleLogout = () => {
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("username");
-        setIsLoggedIn(false);
-        setUserData(null);
-        navigate("/"); // Điều hướng về home thay vì reload
+        logout(); // dùng logout từ AuthProvider
+        navigate("/");
     };
 
-    const buttonClasses = "px-4 py-2 text-white rounded-lg transition-colors duration-200"; // Class chung cho buttons
+    const buttonClasses = "px-4 py-2 text-white rounded-lg transition-colors duration-200";
 
     return (
         <header className="bg-white shadow-md sticky top-0 z-50">
             <nav className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                
+
                 {/* Logo */}
                 <Link to="/" className="text-xl font-bold text-blue-600 hover:text-blue-700 transition-colors">
                     MyApp
                 </Link>
 
-                {/* Menu Desktop */}
+                {/* Desktop Menu */}
                 <ul className="hidden md:flex gap-6 text-gray-700 font-medium">
                     <li><Link to="/" className="hover:text-blue-600 transition-colors">Home</Link></li>
-                    <li><Link to="/about" className="hover:text-blue-600 transition-colors">About</Link></li>
-                    <li><Link to="/contact" className="hover:text-blue-600 transition-colors">Contact</Link></li>
+                    <li><Link to="/aiAnalysis" className="hover:text-blue-600 transition-colors">AI Analysis</Link></li>
+                    <li><Link to="/report" className="hover:text-blue-600 transition-colors">Report</Link></li>
                 </ul>
 
-                {/* Right side */}
+                {/* Right Side */}
                 <div className="flex items-center gap-4">
-                    {isLoggedIn ? (
+                    {isAuthenticated ? (
                         <>
                             <span className="hidden sm:block font-medium text-gray-700">
-                                Welcome, {userData?.name}
+                                Welcome, {user?.name}
                             </span>
                             <button
                                 className={`${buttonClasses} bg-red-600 hover:bg-red-700`}
@@ -57,14 +56,12 @@ export default function Header() {
                             </button>
                         </>
                     ) : (
-                        <>
-                            <Link to="/auth" className={`${buttonClasses} bg-blue-600 hover:bg-blue-700`}>
-                                Login
-                            </Link>
-                        </>
+                        <Link to="/auth" className={`${buttonClasses} bg-blue-600 hover:bg-blue-700`}>
+                            Login
+                        </Link>
                     )}
 
-                    {/* Hamburger Menu Button (Mobile) */}
+                    {/* Hamburger Menu (Mobile) */}
                     <button
                         className="md:hidden text-gray-700 focus:outline-none"
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -80,9 +77,25 @@ export default function Header() {
             {isMenuOpen && (
                 <div className="md:hidden bg-white border-t shadow-md px-6 py-4">
                     <ul className="flex flex-col gap-4 text-gray-700 font-medium">
-                        <li><Link to="/" className="hover:text-blue-600 transition-colors" onClick={() => setIsMenuOpen(false)}>Home</Link></li>
-                        <li><Link to="/about" className="hover:text-blue-600 transition-colors" onClick={() => setIsMenuOpen(false)}>About</Link></li>
-                        <li><Link to="/contact" className="hover:text-blue-600 transition-colors" onClick={() => setIsMenuOpen(false)}>Contact</Link></li>
+                        <li><Link to="/" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-600">Home</Link></li>
+                        <li><Link to="/aiAnalysis" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-600">AI analysis</Link></li>
+                        <li><Link to="/report" onClick={() => setIsMenuOpen(false)} className="hover:text-blue-600">Report</Link></li>
+
+                        {/* Mobile Login/Logout */}
+                        {isAuthenticated ? (
+                            <button
+                                onClick={() => { handleLogout(); setIsMenuOpen(false); }}
+                                className={`${buttonClasses} bg-red-600 hover:bg-red-700 w-full text-center`}
+                            >
+                                Logout
+                            </button>
+                        ) : (
+                            <Link to="/auth" onClick={() => setIsMenuOpen(false)}
+                                className={`${buttonClasses} bg-blue-600 hover:bg-blue-700 text-center`}
+                            >
+                                Login
+                            </Link>
+                        )}
                     </ul>
                 </div>
             )}
