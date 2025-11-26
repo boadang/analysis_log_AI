@@ -3,23 +3,16 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext.jsx";
 
 export default function Header() {
-    const { user, logout } = useAuth();
-    const [isAuthenticated, setAuthenticated] = useState(!!user);
+    const { user, loading, logout } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const navigate = useNavigate();
+    const isAuthenticated = !!user && !loading;
 
     console.log("Header - isAuthenticated:", isAuthenticated);
     console.log("Header - user:", user);
 
-    useEffect(() => {
-        if (user.username) {
-            console.log("Header - Logged in as:", user.username);
-            setAuthenticated(true);
-        }
-    }, [user]);
-
     const handleLogout = () => {
-        logout(); // dùng logout từ AuthProvider
+        logout();
         navigate("/");
     };
 
@@ -46,7 +39,7 @@ export default function Header() {
                     {isAuthenticated ? (
                         <>
                             <span className="hidden sm:block font-medium text-gray-700">
-                                Welcome, {user?.name}
+                                Welcome, {user?.username}
                             </span>
                             <button
                                 className={`${buttonClasses} bg-red-600 hover:bg-red-700`}

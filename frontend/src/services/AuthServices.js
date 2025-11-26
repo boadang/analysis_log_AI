@@ -1,9 +1,12 @@
+// frontend/src/services/authServices.js
 import api, { setAuthToken } from "../utils/api";
 
 const API_URL = "http://127.0.0.1:8000/api/v1/auth/";
 
 export async function login({ email, password }) {
+  console.log("Calling login API with:", { email, password });
   const res = await api.post(`${API_URL}login`, { email, password });
+  console.log("Login response:", res.data);
   return res.data;
 }
 

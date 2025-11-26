@@ -1,3 +1,4 @@
+# backend/app/schemas/auth.py
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
@@ -5,7 +6,7 @@ from datetime import datetime
 class RegisterSchema(BaseModel):
     username: str
     email: EmailStr
-    # password: str
+    password: str
     full_name: str
     role: str = "user"
 

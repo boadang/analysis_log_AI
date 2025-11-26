@@ -2,8 +2,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import Header from "../components/header";
-import Footer from "../components/footer";
 
 export default function HomePage() {
   const { user, loading } = useAuth();

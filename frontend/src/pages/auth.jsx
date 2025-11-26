@@ -1,3 +1,4 @@
+// frontend/src/pages/auth.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.jsx';
