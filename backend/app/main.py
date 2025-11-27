@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.api.v1.auth import router as auth_router
+from app.api.v1.websocket_logs import router as websocket_logs_router
 from .database.postgres import SessionLocal  # Ensure database is initialized
 from sqlalchemy import text
 from fastapi import FastAPI
@@ -31,6 +32,7 @@ app.add_middleware(
 # Routers (tách file)
 # ======================
 app.include_router(auth_router, prefix="/api/v1", tags=["Authentication"])
+app.include_router(websocket_logs_router, prefix="/api/v1", tags=["WebSocket Logs"])
 
 try:
     db = SessionLocal()

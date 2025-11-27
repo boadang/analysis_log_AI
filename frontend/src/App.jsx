@@ -4,6 +4,9 @@ import AuthPage from './pages/auth';
 import HomePage from './pages/home';
 import AIAnalysisPage from "./pages/ai_analysis";
 import ProtectedRoute from './components/ProtectedRoute';
+import ThreatHuntingPage from './pages/threatHunting';
+import LogsPage from './pages/logs';
+import Setting from './pages/setting';
 import Header from './components/header';
 import Footer from './components/footer';
 
@@ -14,6 +17,9 @@ function App() {
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/aiAnalysis" element={<AIAnalysisPage />} />
+        <Route path="/threatHunting" element={<ThreatHuntingPage />}/>
+        <Route path="/logs" element={<LogsPage />}/>
+        <Route path="/setting" element={<Setting />}/>
         <Route 
           path="/" 
           element={
