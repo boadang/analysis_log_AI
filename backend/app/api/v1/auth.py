@@ -8,45 +8,9 @@ from loguru import logger
 from app.models.user import User
 from app.schemas.auth import RegisterSchema, LoginSchema, UserRead
 from app.core.security import verify_password, hash_password, create_access_token, verify_access_token
-from app.database.postgres import SessionLocal
+from app.dependencies import get_db, get_current_user
 
-router = APIRouter(prefix="/auth", tags=["auth"])
-
-# ----------------------
-# Dependency: DB session
-# ----------------------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-# ----------------------
-# Dependency: get current user (KHÔNG cần Redis)
-# ----------------------
-def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc thiếu")
-
-    token = authorization.split(" ")[1]
-
-    payload = verify_access_token(token)
-    user_id = payload.get("sub")
-    if not user_id:
-        logger.warning("Token không chứa sub (user_id)")
-        raise HTTPException(status_code=401, detail="Token không hợp lệ")
-
-    user = db.query(User).filter(User.id == int(user_id)).first()
-    if not user:
-        logger.warning(f"User ID {user_id} không tồn tại trong DB")
-        raise HTTPException(status_code=401, detail="User không tồn tại")
-
-    if not user.is_active:
-        raise HTTPException(status_code=401, detail="Tài khoản đã bị khóa")
-
-    return user
-
+router = APIRouter()
 
 # ----------------------
 # REGISTER (chỉ admin hoặc mở cho tất cả tùy bạn)

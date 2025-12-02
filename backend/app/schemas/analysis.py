@@ -1,8 +1,7 @@
 # backend/app/schemas/analysis.py
-from transformers import Optional
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 class AnalysisJobCreate(BaseModel):
     job_name: Optional[str] = None
@@ -10,6 +9,7 @@ class AnalysisJobCreate(BaseModel):
     time_range_from: Optional[datetime] = None
     time_range_to: Optional[datetime] = None
     device_ids: Optional[List[int]] = None
+    file_path: str
 
 class AnalysisJobResponse(AnalysisJobCreate):
     id: int
