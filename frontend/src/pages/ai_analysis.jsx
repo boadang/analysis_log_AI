@@ -89,6 +89,14 @@ export default function AIAnalysisPage() {
 
     setIsAnalyzing(true);
 
+    console.log("[UI] Starting analysis with:", {
+        file_path: uploadedLogId,
+        model_name: selectedModel,
+        job_name: jobName,
+        time_range_from: null,
+        time_range_to: null,
+        device_ids: []
+      });
     try {
       await axios.post("http://localhost:8000/api/v1/analysis/run-analysis", {
         file_path: uploadedLogId,

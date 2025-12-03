@@ -34,13 +34,23 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-sync_engine = create_engine(
-    settings.CELERY_BROKER_URL.replace("postgresql+psycopg2", "postgresql+psycopg2"),  # giữ nguyên psycopg2
-    echo=False,
-    poolclass=NullPool,  # nếu dùng trong migration thì nên dùng NullPool
+# Sync engine chỉ dùng cho Alembic — luôn dùng PostgreSQL
+POSTGRES_SYNC_URL = (
+    f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+    f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
 
-SessionLocal = sessionmaker(bind=sync_engine)
+sync_engine = create_engine(
+    POSTGRES_SYNC_URL,
+    echo=False,
+    pool_pre_ping=True
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=sync_engine
+)
 
 # Base cho models
 class Base(DeclarativeBase):

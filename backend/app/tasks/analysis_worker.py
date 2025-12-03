@@ -1,18 +1,22 @@
 # backend/app/tasks/analysis_worker.py
-import requests
-from celery import shared_task
-from datetime import datetime
-from app.database.postgres import SessionLocal
-from app.models.AnalysisJob import Analysis
-from collections import Counter
-import json
-import re
 import os
+import re
+import json
+import requests
+from datetime import datetime
+from collections import Counter
+from typing import List, Optional
+
+from celery import shared_task
+from app.database.postgres import SessionLocal
+# from app.models.AnalysisJob import Analysis
+from app.models import Analysis, User
+
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 
 
-def read_logs(file_path: str) -> list[str]:
+def read_logs(file_path: str) -> List[str]:
     """Đọc file log .txt / .log"""
     if not os.path.exists(file_path):
         return []
@@ -21,9 +25,9 @@ def read_logs(file_path: str) -> list[str]:
         return [line.strip() for line in f.readlines() if line.strip()]
 
 
-def build_prompt(logs: list[str]) -> str:
+def build_prompt(logs: List[str]) -> str:
     """Ghép log thành prompt gửi cho AI"""
-    joined_logs = "\n".join(logs[:2000])  # tránh prompt quá to
+    joined_logs = "\n".join(logs[:2000])  # tránh prompt quá lớn
 
     return f"""
 Bạn là AI phân tích an ninh. Hãy đọc các log sau và phát hiện các hành vi tấn công.
@@ -50,7 +54,7 @@ def call_ollama(model_name: str, prompt: str) -> str:
     return response.json().get("response", "")
 
 
-def parse_ai_result(raw_text: str) -> list[dict]:
+def parse_ai_result(raw_text: str) -> List[dict]:
     """Lấy output AI → parse thành list dict"""
     json_pattern = r"\[\s*{.*?}\s*]"
     match = re.search(json_pattern, raw_text, re.DOTALL)
@@ -67,8 +71,18 @@ def parse_ai_result(raw_text: str) -> list[dict]:
 
 
 @shared_task
-def run_analysis_task(analysis_id: int, file_path: str, model_name: str):
+def run_analysis_task(
+    analysis_id: int,
+    file_path: str,
+    model_name: str,
+    time_range_from: Optional[str] = None,
+    time_range_to: Optional[str] = None,
+    device_ids: Optional[List[int]] = None
+):
     """Worker chuẩn cho AI log analysis"""
+    if device_ids is None:
+        device_ids = []
+
     db = SessionLocal()
     try:
         job: Analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
@@ -104,7 +118,12 @@ def run_analysis_task(analysis_id: int, file_path: str, model_name: str):
         print(f"[Worker] Analysis completed: {analysis_id}, total_logs={len(logs)}, threats={threat_count}")
         print(f"[Worker] Threat reasons: {dict(reason_stats)}")
 
-        return {"analysis_id": analysis_id, "total_logs": len(logs), "detected_threats": threat_count, "reason_stats": dict(reason_stats)}
+        return {
+            "analysis_id": analysis_id,
+            "total_logs": len(logs),
+            "detected_threats": threat_count,
+            "reason_stats": dict(reason_stats)
+        }
 
     except Exception as err:
         job = db.query(Analysis).filter(Analysis.id == analysis_id).first()

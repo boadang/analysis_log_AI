@@ -9,6 +9,7 @@ async def create_analysis(
     job_name: str,
     model_name: str,
     created_by: int,
+    file_path: str,
     device_ids: list[int] = None,
     time_range_from: datetime = None,
     time_range_to: datetime = None
@@ -17,6 +18,7 @@ async def create_analysis(
         job_name=job_name,
         model_name=model_name,
         created_by=created_by,
+        file_path=file_path,
         device_ids=device_ids,
         time_range_from=time_range_from,
         time_range_to=time_range_to,

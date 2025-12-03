@@ -11,12 +11,13 @@ async def start_analysis(data, user_id: int):
             db,
             job_name=data.job_name,
             model_name=data.model_name,
+            file_path=data.file_path,
             time_range_from=data.time_range_from,
             time_range_to=data.time_range_to,
             device_ids=data.device_ids,
-            file_path=data.file_path,
             created_by=user_id
         )
+
 
     # 2. Gửi task cho Celery
     run_analysis_task.delay(

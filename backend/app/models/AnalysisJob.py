@@ -2,6 +2,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ARRAY, func, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database.postgres import Base
+# from app.models.user import User
 
 class Analysis(Base):
     __tablename__ = "analysis_jobs"
@@ -18,5 +19,6 @@ class Analysis(Base):
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     finished_at = Column(DateTime(timezone=True), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"))
+    file_path = Column(String, nullable=False)
 
     creator = relationship("User", back_populates="created_jobs")
