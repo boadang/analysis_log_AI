@@ -13,8 +13,7 @@ from app.database.postgres import SessionLocal
 from app.models import Analysis, User
 
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-
+OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 
 def read_logs(file_path: str) -> List[str]:
     """Đọc file log .txt / .log"""
@@ -48,7 +47,8 @@ def call_ollama(model_name: str, prompt: str) -> str:
     """Gửi prompt đến Ollama"""
     response = requests.post(
         OLLAMA_URL,
-        json={"model": model_name, "prompt": prompt}
+        json={"model": model_name, "prompt": prompt},
+        timeout=120,
     )
     response.raise_for_status()
     return response.json().get("response", "")

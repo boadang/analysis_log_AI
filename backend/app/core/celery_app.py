@@ -13,5 +13,11 @@ celery = Celery(
     backend=settings.CELERY_RESULT_BACKEND,
 )
 
+celery.conf.update(
+    task_track_started=True,
+    task_serializer="json",
+    accept_content=["json"],
+)
+
 # Auto-discover tasks trong app.tasks
 celery.autodiscover_tasks(["app.tasks"])
