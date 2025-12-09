@@ -38,4 +38,5 @@ for %%p in (8000 11434) do (
 echo ========================================
 echo     ALL SERVICES HAVE BEEN TERMINATED
 echo ========================================
-pause
+
+taskkill /IM cmd.exe /F

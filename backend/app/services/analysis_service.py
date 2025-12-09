@@ -2,9 +2,12 @@
 from app.crud.analysis_job import create_analysis
 from app.tasks.analysis_worker import run_analysis_task
 from app.database.postgres import AsyncSessionLocal
+from pathlib import Path
 
-async def start_analysis(data, user_id: int):
+async def start_analysis(data, current_user_id: int):
     async with AsyncSessionLocal() as db:
+        abs_path = str(Path(data.file_path).resolve())  
+        data.file_path = abs_path
 
         # 1. Lưu job vào DB
         analysis = await create_analysis(
@@ -15,7 +18,7 @@ async def start_analysis(data, user_id: int):
             time_range_from=data.time_range_from,
             time_range_to=data.time_range_to,
             device_ids=data.device_ids,
-            created_by=user_id
+            created_by=current_user_id
         )
 
 

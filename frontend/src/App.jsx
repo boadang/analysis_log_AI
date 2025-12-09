@@ -19,7 +19,7 @@ function App() {
         <Route path="/aiAnalysis" element={<AIAnalysisPage />} />
         <Route path="/threatHunting" element={<ThreatHuntingPage />}/>
         <Route path="/logs" element={<LogsPage />}/>
-        <Route path="/setting" element={<Setting />}/>
+        <Route path="/settings" element={<Setting />}/>
         <Route 
           path="/" 
           element={

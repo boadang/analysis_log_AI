@@ -56,7 +56,7 @@ REM ===========================
 echo ========================================
 echo   START CELERY WORKER
 echo ========================================
-start "Celery Worker" cmd /k "cd backend && celery -A app.tasks.celery_worker worker --loglevel=INFO -P solo -c 1"
+start "Celery Worker" cmd /k "cd backend && celery -A app.core.celery_app worker --loglevel=info --pool=threads"
 
 REM ===========================
 REM START BACKEND

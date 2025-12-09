@@ -71,7 +71,7 @@ export default function AIAnalysisPage() {
         { headers: { "Content-Type": "multipart/form-data" } }
       );
       setUploadedLogId(res.data.file_path);
-      if (res.data.suggested_job_name) setJobName(res.data.suggested_job_name);
+      // if (res.data.suggested_job_name) setJobName(res.data.suggested_job_name);
     } catch (err) {
       console.error("[UI] Upload error:", err);
       alert("Lỗi upload file.");
@@ -104,7 +104,8 @@ export default function AIAnalysisPage() {
         job_name: jobName,
         time_range_from: null,
         time_range_to: null,
-        device_ids: []
+        device_ids: [],
+        current_user_id: localStorage.getItem("id")
       });
       setIsAnalyzing(false);
       setSelectedFile(null);

@@ -9,7 +9,7 @@ from typing import List, Optional
 
 from celery import shared_task
 from app.database.postgres import SessionLocal
-# from app.models.AnalysisJob import Analysis
+from app.utils.ollama_client import call_ollama
 from app.models import Analysis, User
 
 
@@ -42,33 +42,53 @@ Yêu cầu:
   ]
 """
 
+def parse_ai_result(raw_text: str) -> list:
+    """
+    Parse thông minh chống lỗi:
+    - Tìm tất cả JSON array chuẩn [ ... ]
+    - Lấy mảng JSON dài nhất (thường đúng nhất)
+    - Sửa lỗi cơ bản rồi parse
+    """
 
-def call_ollama(model_name: str, prompt: str) -> str:
-    """Gửi prompt đến Ollama"""
-    response = requests.post(
-        OLLAMA_URL,
-        json={"model": model_name, "prompt": prompt},
-        timeout=120,
-    )
-    response.raise_for_status()
-    return response.json().get("response", "")
-
-
-def parse_ai_result(raw_text: str) -> List[dict]:
-    """Lấy output AI → parse thành list dict"""
-    json_pattern = r"\[\s*{.*?}\s*]"
-    match = re.search(json_pattern, raw_text, re.DOTALL)
-    if not match:
+    if not raw_text:
         return []
 
+    # Xóa code block ```json ``` nếu có
+    raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+
+    # Regex tìm tất cả mảng JSON
+    json_arrays = re.findall(r"\[\s*{.*?}\s*]", raw_text, flags=re.DOTALL)
+
+    if not json_arrays:
+        return []
+
+    # Lấy mảng JSON dài nhất — xác suất chính xác cao nhất
+    candidate = max(json_arrays, key=len)
+
+    # Fix lỗi phổ biến
+    fixed = (
+        candidate
+        .replace("\n", " ")
+        .replace("\t", " ")
+        .replace(",]", "]")
+        .replace(", }", " }")
+        .strip()
+    )
+
+    # Nếu mảng không kết thúc đúng → cố gắng sửa
+    if not fixed.endswith("]"):
+        fixed += "]"
+
+    # Parse JSON
     try:
-        data = json.loads(match.group(0))
+        data = json.loads(fixed)
         if isinstance(data, list):
             return data
-    except Exception:
-        pass
-    return []
+    except Exception as err:
+        print("[Parse Error] ", err)
+        return []
 
+    return []
 
 @shared_task
 def run_analysis_task(
@@ -92,17 +112,26 @@ def run_analysis_task(
         job.status = "running"
         db.commit()
 
-        # 1. Đọc log
+        print("[Worker] Starting analysis: Read Logs ", analysis_id)
         logs = read_logs(file_path)
 
+        print(f"[Worker] Logs read: {len(logs)} lines")
         # 2. Build prompt
         prompt = build_prompt(logs)
+        print(f"[Worker] Building prompt: {prompt}")
 
         # 3. Call AI
         output_text = call_ollama(model_name, prompt)
+        print(f"[Worker] Call AI: {prompt} and {model_name}")
+
+        # DEBUG cho biết AI trả về cái gì
+        print("\n\n========== AI RAW ==========")
+        print(output_text[:1500])
+        print("======== END AI RAW ========\n\n")
 
         # 4. Parse result
         parsed = parse_ai_result(output_text)
+        print(f"[Worker] Parse AI result: {len(parsed)} items")
 
         # 5. Thống kê cơ bản
         threat_count = sum(1 for item in parsed if item.get("is_threat"))

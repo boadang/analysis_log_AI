@@ -42,8 +42,6 @@ async def run_analysis(
             data,
             current_user_id
         )
-
-
         print("[API] Task queued OK")
 
     except Exception as e:
