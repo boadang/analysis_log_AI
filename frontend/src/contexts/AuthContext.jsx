@@ -12,6 +12,7 @@ export default function AuthProvider({ children }) {
   // Khi app load, kiểm tra token
   useEffect(() => {
     const token = localStorage.getItem("authToken");
+    console.log(`[AUTH CONTEXT] token: ${token}`)
     if (token) {
       setAuthToken(token);
       getMe()

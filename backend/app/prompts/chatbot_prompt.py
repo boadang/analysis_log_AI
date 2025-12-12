@@ -1,4 +1,6 @@
-def build_chatbot_prompt(user_message: str, history: list) -> str:
+#backend/app/prompts/chatbot_prompt.py
+from typing import List
+def build_chatbot_prompt(user_message: str, history: List) -> str:
     """
     Xây dựng prompt chuẩn cho chatbot.
     """

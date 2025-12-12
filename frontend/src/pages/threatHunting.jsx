@@ -1,60 +1,193 @@
-// src/pages/ThreatHunting.jsx
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+
+import {
+  getLogSources,
+  loadLog,
+  uploadLog,
+  postHunt
+} from "../services/AI/threatApi";
+
+// Components
+import LogSourceSelector from "../components/LogSourceSelector";
+import RawLogInput from "../components/RawLogInput";
+import HuntControls from "../components/HuntControls";
+import FilterPanel from "../components/FilterPanel";
+import ResultsTable from "../components/ResultsTable";
+import ChatBot from "../components/ChatBot";
 
 export default function ThreatHuntingPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  const [logs, setLogs] = useState([]);
-  const [query, setQuery] = useState("");
-  const [filterAction, setFilterAction] = useState("all");
-  const [filterThreat, setFilterThreat] = useState("all");
-  const [loadingData, setLoadingData] = useState(true);
+  // CORE STATES
+  const [sources, setSources] = useState([]);
+  const [selectedSource, setSelectedSource] = useState("new");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [rawLines, setRawLines] = useState([]);
 
-  // auth check
+  const [query, setQuery] = useState("");   // AI query
+  const [logs, setLogs] = useState([]);     // AI results
+
+  const [filters, setFilters] = useState({
+    search: "",
+    action: "all",
+    threat: "all",
+    protocol: "all",
+    conf: "all",
+    start: "",
+    end: ""
+  });
+
+  const [sort, setSort] = useState({ field: null, dir: "asc" });
+  const [page, setPage] = useState(1);
+
+  // UI
+  const [loadingData, setLoadingData] = useState(true);
+  const [isHunting, setIsHunting] = useState(false);
+
+  // ------------------------------
+  // AUTH REDIRECT
+  // ------------------------------
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
-  }, [loading, user, navigate]);
+  }, [loading, user]);
 
-  // Dummy data (sau này thay API / MongoDB)
+  // ------------------------------
+  // LOAD LOG SOURCES
+  // ------------------------------
   useEffect(() => {
-    setTimeout(() => {
-      setLogs([
-        {
-          timestamp: "2025-11-20 15:34:22",
-          source_ip: "192.168.10.45",
-          dest_ip: "8.8.8.8",
-          protocol: "UDP",
-          action: "block",
-          threat_type: "DNS_Tunneling",
-          ai_confidence: 94,
-        },
-        {
-          timestamp: "2025-11-20 15:31:14",
-          source_ip: "185.200.12.11",
-          dest_ip: "10.10.10.10",
-          protocol: "TCP",
-          action: "allow",
-          threat_type: "BruteForce",
-          ai_confidence: 88,
-        },
-        {
-          timestamp: "2025-11-20 15:29:44",
-          source_ip: "45.72.91.101",
-          dest_ip: "10.10.10.50",
-          protocol: "TCP",
-          action: "block",
-          threat_type: "SQL_Injection",
-          ai_confidence: 98,
-        },
-      ]);
-
-      setLoadingData(false);
-    }, 1200);
+    async function load() {
+      try {
+        const src = await getLogSources();
+        setSources(src || []);
+      } catch (err) {
+        console.error("Load source error", err);
+      } finally {
+        setLoadingData(false);
+      }
+    }
+    load();
   }, []);
 
+  // ------------------------------
+  // LOAD LOG WHEN SELECTED
+  // ------------------------------
+  useEffect(() => {
+    if (!selectedSource || selectedSource === "new") {
+      setRawLines([]);
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await loadLog(selectedSource);
+        setRawLines(res.lines || []);
+      } catch (err) {
+        console.error("Load log failed", err);
+        setRawLines([]);
+      }
+    })();
+  }, [selectedSource]);
+
+  // ------------------------------
+  // HANDLE FILE UPLOAD + AUTO LOAD
+  // ------------------------------
+  const handleUploadFile = async () => {
+    if (!selectedFile) return alert("Chọn file để upload");
+
+    setLoadingData(true);
+    try {
+      const res = await uploadLog(selectedFile);
+
+      // Select this source immediately
+      setSelectedSource(res.id.toString());
+
+      // Auto-load lines
+      const loaded = await loadLog(res.id);
+      setRawLines(loaded.lines || []);
+
+      // Reload sources list
+      const src = await getLogSources();
+      setSources(src || []);
+
+      setLogs([]);  // clear previous results
+
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Upload thất bại");
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // ------------------------------
+  // START HUNT
+  // ------------------------------
+  const startHunt = async () => {
+  // if (!query.trim()) {
+  //   return alert("Nhập truy vấn AI trước khi hunting");
+  // }
+
+  // Không có log → stop
+  if (
+    selectedSource === "new" &&
+    rawLines.length === 0 &&
+    !selectedFile
+  ) {
+    return alert("Chưa có log để hunting");
+  }
+
+  // Nếu user upload file nhưng rawLines chưa load → upload trước
+  if (selectedSource === "new" && selectedFile && rawLines.length === 0) {
+    await handleUploadFile();
+  }
+
+  // -------------------------
+  // TẠO BODY GỬI BACKEND
+  // -------------------------
+  const body = {
+    query: query,
+    logs: null,          // chuẩn bị override
+    analysis_id: null,   // chuẩn bị override
+  };
+
+  // Case 1: user chọn log source đã lưu trong DB
+  if (selectedSource !== "new") {
+    body.analysis_id = Number(selectedSource);
+  }
+
+  // Case 2: user upload log mới
+  if (selectedSource === "new") {
+    body.logs = rawLines;
+  }
+
+  // Xóa field null để tránh 422
+  if (body.logs === null) delete body.logs;
+  if (body.analysis_id === null) delete body.analysis_id;
+
+  console.log("Starting hunt with body:", body);
+
+  // -------------------------
+  // CALL API
+  // -------------------------
+  setIsHunting(true);
+  try {
+    const res = await postHunt(body);
+    setLogs(res.items || []);
+    setPage(1);
+  } catch (err) {
+    console.error(err);
+    alert("Hunt thất bại:\n" + JSON.stringify(err?.message || err));
+  } finally {
+    setIsHunting(false);
+  }
+};
+
+  // ------------------------------
+  // MAIN UI
+  // ------------------------------
   if (loading || loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -63,172 +196,56 @@ export default function ThreatHuntingPage() {
     );
   }
 
-  // Filtering logic
-  const filteredLogs = logs.filter((log) => {
-    const matchesQuery =
-      query === "" ||
-      log.source_ip.includes(query) ||
-      log.dest_ip.includes(query) ||
-      log.threat_type.toLowerCase().includes(query.toLowerCase());
-
-    const matchesAction =
-      filterAction === "all" || log.action === filterAction;
-
-    const matchesThreat =
-      filterThreat === "all" || log.threat_type === filterThreat;
-
-    return matchesQuery && matchesAction && matchesThreat;
-  });
-
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header section giống Home */}
+
+      {/* HEADER */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-14">
         <div className="max-w-7xl mx-auto px-4">
           <h1 className="text-4xl font-bold mb-2">Threat Hunting</h1>
           <p className="opacity-90">
-            Chủ động săn tìm mối đe dọa dựa trên AI và phân tích hành vi.
+            Chủ động săn tìm mối đe dọa dựa trên AI.
           </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-10">
-        {/* Search + Filters */}
-        <div className="bg-white rounded-xl shadow-lg border p-6 mb-10">
-          <h2 className="text-xl font-semibold mb-4 text-gray-800">
-            Bộ lọc & Tìm kiếm
-          </h2>
+      <div className="max-w-7xl mx-auto px-4 py-10 space-y-8">
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Search Box */}
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Tìm kiếm</p>
-              <input
-                type="text"
-                placeholder="IP nguồn, IP đích, Threat type..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-600"
-              />
-            </div>
+        {/* SELECT SOURCE & UPLOAD */}
+        <LogSourceSelector
+          sources={sources}
+          selectedSource={selectedSource}
+          setSelectedSource={setSelectedSource}
+          setSelectedFile={setSelectedFile}
+          onUpload={handleUploadFile}
+        />
 
-            {/* Filter by Action */}
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Hành động</p>
-              <select
-                className="w-full p-3 border rounded-lg"
-                value={filterAction}
-                onChange={(e) => setFilterAction(e.target.value)}
-              >
-                <option value="all">Tất cả</option>
-                <option value="allow">Allow</option>
-                <option value="block">Block</option>
-                <option value="drop">Drop</option>
-              </select>
-            </div>
+        {/* RAW LOG INPUT */}
+        <RawLogInput rawLines={rawLines} setRawLines={setRawLines} />
 
-            {/* Filter by Threat */}
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Loại mối đe dọa</p>
-              <select
-                className="w-full p-3 border rounded-lg"
-                value={filterThreat}
-                onChange={(e) => setFilterThreat(e.target.value)}
-              >
-                <option value="all">Tất cả</option>
-                <option value="DNS_Tunneling">DNS Tunneling</option>
-                <option value="BruteForce">Brute Force</option>
-                <option value="SQL_Injection">SQL Injection</option>
-              </select>
-            </div>
-          </div>
-        </div>
+        {/* AI QUERY + BUTTON */}
+        <HuntControls
+          query={query}
+          setQuery={setQuery}
+          startHunt={startHunt}
+          isHunting={isHunting}
+        />
 
-        {/* Results Table */}
-        <div className="bg-white rounded-xl shadow-lg border">
-          <div className="px-6 py-4 border-b">
-            <h2 className="text-xl font-semibold text-gray-800">
-              Kết quả Threat Hunting
-            </h2>
-          </div>
+        {/* FILTER PANEL */}
+        <FilterPanel filters={filters} setFilters={setFilters} logs={logs} />
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Thời gian
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Source IP
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Dest IP
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Protocol
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Action
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    Threat
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase">
-                    AI Score
-                  </th>
-                </tr>
-              </thead>
+        {/* RESULTS TABLE */}
+        <ResultsTable
+          logs={logs}
+          filters={filters}
+          sort={sort}
+          setSort={setSort}
+          page={page}
+          setPage={setPage}
+        />
 
-              <tbody className="divide-y divide-gray-200">
-                {filteredLogs.map((log, i) => (
-                  <tr key={i} className={log.ai_confidence > 90 ? "bg-red-50" : ""}>
-                    <td className="px-6 py-3 text-sm">{log.timestamp}</td>
-                    <td className="px-6 py-3 text-sm font-mono">{log.source_ip}</td>
-                    <td className="px-6 py-3 text-sm font-mono">{log.dest_ip}</td>
-                    <td className="px-6 py-3 text-sm">{log.protocol}</td>
+        <ChatBot />
 
-                    <td className="px-6 py-3">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          log.action === "block"
-                            ? "bg-red-100 text-red-800"
-                            : log.action === "allow"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-yellow-100 text-yellow-800"
-                        }`}
-                      >
-                        {log.action}
-                      </span>
-                    </td>
-
-                    <td className="px-6 py-3 text-sm">{log.threat_type}</td>
-
-                    <td className="px-6 py-3">
-                      <div className="flex items-center">
-                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              log.ai_confidence > 90
-                                ? "bg-red-600"
-                                : log.ai_confidence > 70
-                                ? "bg-orange-500"
-                                : "bg-green-500"
-                            }`}
-                            style={{ width: `${log.ai_confidence}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {log.ai_confidence}%
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>
   );

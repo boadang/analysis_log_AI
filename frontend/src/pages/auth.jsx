@@ -49,8 +49,7 @@ export default function AuthPage() {
         try {
             if (isLoginForm) {
                 console.log("Submitting login with data:", loginData);
-                const data = await login(loginData);
-                localStorage.setItem("username", data.username);
+                await login(loginData);
                 navigate("/");
             } else {
                 await axios.post("http://127.0.0.1:8000/api/v1/auth/register", registerData);

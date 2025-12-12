@@ -1,5 +1,6 @@
+// frontend/src/components/chatbot.jsx
 import { useState, useEffect, useRef } from 'react';
-import { streamChatbotResponse } from '../services/AiServices';
+import { streamChatbotResponse } from '../services/AI/chatbotApi';
 
 export default function Chatbot({ analysisData }) {
   const [open, setOpen] = useState(false);
@@ -11,38 +12,47 @@ export default function Chatbot({ analysisData }) {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    if (analysisData) console.log("Chatbot got analysisData:", analysisData);
-  }, [analysisData]);
+      if (analysisData) console.log("Chatbot got analysisData:", analysisData);
+    }, [analysisData]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    useEffect(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
-  const handleSend = async () => {
+    const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage = { sender: 'user', text: input };
     setMessages(prev => [...prev, userMessage]);
+
     const prompt = input;
     setInput('');
-
     setIsTyping(true);
 
-    // === STREAM API ===
-    let botText = "";
+    // Tạo 1 bot message rỗng
+    let botIndex;
+    setMessages(prev => {
+      botIndex = prev.length;
+      return [...prev, { sender: "bot", text: "" }];
+    });
+
     await streamChatbotResponse(
-      { message: prompt, context: analysisData || {} },
+      { message: prompt, history: [], context: analysisData || {} },
       (chunk) => {
-        botText += chunk;
-        setMessages(prev => [
-          ...prev.filter(m => m !== "__typing__"),
-          { sender: "bot", text: botText }
-        ]);
+        setMessages(prev => {
+          const updated = [...prev];
+          updated[botIndex] = {
+            sender: "bot",
+            text: updated[botIndex].text + chunk // append chunk
+          };
+          return updated;
+        });
       }
     );
 
     setIsTyping(false);
   };
+
 
   return (
     <>

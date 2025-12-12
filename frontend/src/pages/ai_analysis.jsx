@@ -1,3 +1,4 @@
+//frontend/src/pages/ai_analysis.jsx
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +30,7 @@ export default function AIAnalysisPage() {
   // =================================
   useEffect(() => {
     setAvailableModels([
-      { id: 1, name: 'qwen3:8b', description: 'Model mặc định', accuracy: 94.7 },
+      { id: 1, name: 'qwen2.5:3b', description: 'Model mặc định', accuracy: 94.7 },
       { id: 2, name: 'phi3', description: 'Model nhỏ gọn', accuracy: 89.2 },
       { id: 3, name: 'mistral', description: 'Model mạnh', accuracy: 96.3 },
       { id: 4, name: 'fortigate-finetuned', description: 'fine-tuned cho FortiGate', accuracy: 98.1 },
@@ -105,8 +106,13 @@ export default function AIAnalysisPage() {
         time_range_from: null,
         time_range_to: null,
         device_ids: [],
-        current_user_id: localStorage.getItem("id")
-      });
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`
+        }
+      }
+    );
       setIsAnalyzing(false);
       setSelectedFile(null);
       setJobName("");

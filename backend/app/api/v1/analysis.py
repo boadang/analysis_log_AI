@@ -24,9 +24,9 @@ ALLOWED_EXTENSIONS = ["log", "txt", "csv"]
 @router.post("/run-analysis")
 async def run_analysis(
     data: AnalysisJobCreate,
-    current_user_id: int = 1
+    current_user = Depends(get_current_user)
 ):
-
+    print("[API] Received user id:", current_user)
     print("\n[API] /run-analysis called")
     print("[API] Received data:", data)
 
@@ -40,7 +40,7 @@ async def run_analysis(
     try:
         analysis = await start_analysis(
             data,
-            current_user_id
+            current_user.id
         )
         print("[API] Task queued OK")
 
@@ -49,9 +49,10 @@ async def run_analysis(
         raise HTTPException(status_code=500, detail="Failed to enqueue Celery task")
 
     return {
+        "user_id": current_user.id,
         "message": "Job created & queued",
         "analysis_id": analysis.id,
-        "status": analysis.status
+        "status": analysis.status,
     }
 
 
