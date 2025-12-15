@@ -1,3 +1,4 @@
+# backend/app/core/config.py
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -6,6 +7,11 @@ class Settings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
+    OLLAMA_MODEL: str = "qwen3:8b"
+    
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
 
     CELERY_BROKER_URL: str | None = None
     CELERY_RESULT_BACKEND: str | None = None

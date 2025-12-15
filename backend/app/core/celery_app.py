@@ -2,22 +2,27 @@
 from celery import Celery
 from dotenv import load_dotenv
 import os
+from app.core.config import settings
+from celery import Celery
 
 load_dotenv()
 
-from app.core.config import settings
-
-celery = Celery(
-    "backend",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+celery_app = Celery(
+    "analysis_worker",
+    broker="redis://localhost:6379/0",
+    backend="redis://localhost:6379/1",
 )
 
-celery.conf.update(
+# QUAN TRỌNG: discover tasks
+celery_app.autodiscover_tasks([
+    "app.tasks",
+])
+
+celery_app.conf.update(
+    task_routes={
+        "tasks.analysis_worker.run_analysis_task": {"queue": "celery"},
+    },
     task_track_started=True,
-    task_serializer="json",
-    accept_content=["json"],
 )
 
-# Auto-discover tasks trong app.tasks
-celery.autodiscover_tasks(["app.tasks"])
+

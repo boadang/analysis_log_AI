@@ -1,155 +1,45 @@
-import os
-import re
-import json
-from datetime import datetime
-from collections import Counter
-from typing import List, Optional
-
+# backend/app/tasks/analysis_worker.py
+import asyncio
 from celery import shared_task
 from app.database.postgres import SessionLocal
-from app.models import Analysis
-from app.utils.ollama_client import call_ollama
+from app.models.analysis_job import AnalysisJob
+from app.services.ai_processor import AIProcessor
+from app.services.analysis_runner import run_analysis_job
+import traceback
 
-
-# ============================================
-# 1. Đọc log
-# ============================================
-
-def read_logs(file_path: str) -> List[str]:
-    if not os.path.exists(file_path):
-        return []
-    with open(file_path, "r", encoding="utf-8") as f:
-        return [line.strip() for line in f.readlines() if line.strip()]
-
-
-# ============================================
-# 2. Chia log thành batch nhỏ (tối ưu tốc độ)
-# ============================================
-
-def chunk_logs(logs: List[str], batch_size: int = 80):
-    for i in range(0, len(logs), batch_size):
-        yield logs[i:i + batch_size]
-
-
-# ============================================
-# 3. Build prompt
-# ============================================
-
-def build_prompt(log_batch: List[str]) -> str:
-    joined = "\n".join(log_batch)
-
-    return f"""
-Bạn là AI phân tích an ninh. Hãy đọc các log sau và phát hiện các hành vi tấn công.
-
-Logs:
-{joined}
-
-Yêu cầu:
-- Xác định threat.
-- Output JSON ONLY:
-[
-  {{"log": "...", "is_threat": true/false, "reason": "..." }}
-]
-"""
-    
-
-# ============================================
-# 4. Parse JSON từ AI
-# ============================================
-
-def parse_ai_result(raw: str):
-    if not raw:
-        return []
-
-    raw = raw.replace("```json", "").replace("```", "")
-
-    arrs = re.findall(r"\[\s*{.*?}\s*]", raw, flags=re.DOTALL)
-    if not arrs:
-        return []
-
-    candidate = max(arrs, key=len)
-
-    try:
-        return json.loads(candidate)
-    except:
-        return []
-
-
-# ============================================
-# 5. Celery Worker phân tích log
-# ============================================
-
-@shared_task
-def run_analysis_task(
-    analysis_id: int,
-    file_path: str,
-    model_name: str,
-    time_range_from: Optional[str] = None,
-    time_range_to: Optional[str] = None,
-    device_ids: Optional[List[int]] = None
-):
+@shared_task(name="tasks.analysis_worker.run_analysis_task")
+def run_analysis_task(job_id: int, file_path: str, model_name: str,
+                      time_from=None, time_to=None, device_ids=None):
+    """
+    Celery task để chạy AI phân tích log.
+    """
     db = SessionLocal()
+
     try:
-        job: Analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        job = db.get(AnalysisJob, job_id)
         if not job:
-            return f"Job {analysis_id} not found"
+            print(f"[TASK] Job {job_id} not found")
+            return
 
         job.status = "running"
         db.commit()
+        print(f"[TASK] Job {job_id} running")
 
-        print(f"[Worker] Starting analysis job={analysis_id}")
-
-        logs = read_logs(file_path)
-        print(f"[Worker] Logs loaded: {len(logs)} lines")
-
-        all_results = []
-
-        # ==================================
-        # Xử lý theo batch nhỏ -> Nhanh gấp 20 lần
-        # ==================================
-        for batch_id, log_batch in enumerate(chunk_logs(logs)):
-            print(f"[Worker] Processing batch {batch_id + 1}")
-
-            prompt = build_prompt(log_batch)
-            response = call_ollama(model_name, prompt)
-
-            parsed = parse_ai_result(response)
-            all_results.extend(parsed)
-
-        # ==================================
-        # Thống kê
-        # ==================================
-        threat_count = sum(1 for x in all_results if x.get("is_threat"))
-        reason_stats = Counter(
-            x["reason"] for x in all_results if x.get("is_threat")
+        # Chạy AI ko dùng async để tránh vấn đề với Celery
+        run_analysis_job(
+            job_id=job_id,
+            db=db,
+            log_file_path=file_path
         )
 
-        # ==================================
-        # Update DB
-        # ==================================
-        job.total_logs = len(logs)
-        job.detected_threats = threat_count
-        job.status = "completed"
-        job.finished_at = datetime.utcnow()
+        print(f"[TASK] Job {job_id} completed")
 
-        db.commit()
-
-        print(f"[Worker] Completed job={analysis_id} threats={threat_count}")
-
-        return {
-            "analysis_id": analysis_id,
-            "total_logs": len(logs),
-            "detected_threats": threat_count,
-            "reason_stats": dict(reason_stats),
-        }
-
-    except Exception as err:
-        print("[Worker] ERROR:", err)
-        job = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    except Exception as e:
+        print(f"[TASK] Error running job {job_id}: {e}")
+        traceback.print_exc()
         if job:
             job.status = "failed"
             db.commit()
-        return {"error": str(err)}
 
     finally:
         db.close()

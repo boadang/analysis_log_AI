@@ -1,14 +1,35 @@
 from fastapi import FastAPI
 from app.api.v1.router import api_router
-from .database.postgres import SessionLocal  # Ensure database is initialized
+from .database.postgres import SessionLocal
 from sqlalchemy import text
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
+import asyncio
+# from app.services.ws_publisher import ws_event_listener
+from app.core.ws_manager import job_ws_manager
+from contextlib import asynccontextmanager
+from app.api.v1.router import api_router
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events"""
+    print("[APP] Starting up...")
+    
+    # Start Redis listener in background
+    listener_task = asyncio.create_task(job_ws_manager.start_redis_listener())
+    
+    yield  # App runs here
+    
+    # Shutdown
+    print("[APP] Shutting down...")
+    await job_ws_manager.stop_redis_listener()
 
 app = FastAPI(
     title="Ana_FW Log API",
     description="Backend API for FE project",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Cấu hình CORS để FE có thể gọi API

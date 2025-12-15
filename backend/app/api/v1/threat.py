@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Body
 from typing import List
 import traceback
 from app.database.postgres import SessionLocal
-from app.models import Analysis
+from app.models.analysis_job import AnalysisJob as Analysis
 from app.services.threat_service import read_log_file_to_lines, hunt_threats_from_lines
 from app.dependencies import get_current_user
 import os, shutil

@@ -1,3 +1,3 @@
 # app/models/__init__.py
 from .user import User
-from .AnalysisJob import Analysis
+from .analysis_job import AnalysisJob

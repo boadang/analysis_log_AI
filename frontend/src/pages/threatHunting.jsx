@@ -15,7 +15,7 @@ import RawLogInput from "../components/RawLogInput";
 import HuntControls from "../components/HuntControls";
 import FilterPanel from "../components/FilterPanel";
 import ResultsTable from "../components/ResultsTable";
-import ChatBot from "../components/ChatBot";
+import ChatBot from "../components/chatbot";
 
 export default function ThreatHuntingPage() {
   const { user, loading } = useAuth();
@@ -244,7 +244,7 @@ export default function ThreatHuntingPage() {
           setPage={setPage}
         />
 
-        <ChatBot />
+        <ChatBot analysisData={logs} />
 
       </div>
     </div>
