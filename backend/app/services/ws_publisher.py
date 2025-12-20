@@ -72,18 +72,18 @@ async def ws_publish_timeline(job_id: int, timeline: List[Dict[str, Any]]):
 
 
 # Job completed
-async def ws_publish_completed(job_id: int, stats: Dict[str, Any]):
-    print(f"[WS-PUB] ✅ Publishing completed for job={job_id}: {stats}")
-    # 🔥 DON'T send full summary/timeline - just signal completion
+async def ws_publish_completed(job_id: int, job_data: Dict[str, Any]):
+    print(f"[WS-PUB] ✅ Publishing completed for job={job_id}")
     await _publish(job_id, {
         "type": "completed",
         "status": "completed",
+        "summary": job_data.get("summary", {}),
+        "timeline": job_data.get("timeline", []),
         "stats": {
-            "total_logs": stats.get("total_logs", 0),
-            "detected_threats": stats.get("detected_threats", 0)
+            "total_logs": job_data.get("total_logs", 0),
+            "detected_threats": job_data.get("detected_threats", 0)
         }
     })
-
 
 # Job failed
 async def ws_publish_error(job_id: int, message: str):

@@ -1,7 +1,7 @@
 # backend/app/models/user.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
-from app.database.postgres import Base
+from .base import Base
 from .alert import Alert
 
 class User(Base):

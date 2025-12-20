@@ -1,3 +1,4 @@
+# backend/app/models/threat_hunt.py
 from datetime import datetime
 from sqlalchemy import (
     Column,
@@ -11,7 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 
-from app.models.base import Base
+from .base import Base
 
 
 # ======================================================
@@ -36,7 +37,8 @@ class HuntSession(Base):
     time_range_start = Column(DateTime, nullable=False)
     time_range_end = Column(DateTime, nullable=False)
 
-    data_sources = Column(JSONB, nullable=False)
+    # data_sources = Column(JSONB, nullable=True)
+    # raw_logs = Column(JSONB)
 
     status = Column(
         Enum(
@@ -52,7 +54,14 @@ class HuntSession(Base):
 
     created_by = Column(Integer, nullable=False)  # SOC analyst id
 
+    dataset_id = Column(
+        Integer,
+        ForeignKey("log_datasets.id", ondelete="RESTRICT"),
+        nullable=False
+    )
+    
     # ---------------- RELATIONSHIPS ----------------
+    
     hypothesis = relationship(
         "HuntHypothesis",
         back_populates="hunt",
@@ -138,6 +147,8 @@ class HuntExecution(Base):
             "queued",
             "running",
             "completed",
+            "paused",
+            "stopped",
             "failed",
             name="hunt_execution_status",
         ),

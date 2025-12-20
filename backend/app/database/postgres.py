@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 from sqlalchemy.orm import DeclarativeBase
+from app.models import *
 
 # Chỉ import settings, KHÔNG hardcode gì cả
 from app.core.config import settings

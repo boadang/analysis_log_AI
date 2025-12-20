@@ -1,28 +1,29 @@
 # backend/app/core/celery_app.py
 from celery import Celery
 from dotenv import load_dotenv
+
+from .config import settings
 import os
-from app.core.config import settings
-from celery import Celery
 
 load_dotenv()
 
 celery_app = Celery(
-    "analysis_worker",
-    broker="redis://localhost:6379/0",
-    backend="redis://localhost:6379/1",
+    "soc_platform",
+    broker=settings.CELERY_BROKER_URL,          # không thêm /0 nữa
+    backend=settings.CELERY_RESULT_BACKEND,     # không thêm /1 nữa
 )
 
-# QUAN TRỌNG: discover tasks
+# 🔍 Auto-discover tất cả tasks
 celery_app.autodiscover_tasks([
     "app.tasks",
 ])
 
 celery_app.conf.update(
-    task_routes={
-        "tasks.analysis_worker.run_analysis_task": {"queue": "celery"},
-    },
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    timezone="UTC",
+    enable_utc=True,
     task_track_started=True,
 )
-
 

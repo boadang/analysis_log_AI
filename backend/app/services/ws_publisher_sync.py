@@ -4,6 +4,8 @@ import json
 import redis
 from app.core.config import settings
 from app.core.ws_manager import job_ws_manager
+from typing import Union
+from uuid import UUID
 
 # ==========================
 # Redis sync client (Celery)
@@ -17,9 +19,11 @@ redis_client = redis.Redis(
 
 CHANNEL_PREFIX = "job"
 
-def _publish(job_id: str, payload: dict):
+def _publish(job_id: Union[str, int, UUID], payload: dict):
     try:
-        channel = f"{CHANNEL_PREFIX}:{job_id}"
+        # 🔥 Ensure string
+        job_id_str = str(job_id)
+        channel = f"{CHANNEL_PREFIX}:{job_id_str}"
         redis_client.publish(channel, json.dumps(payload))
         print(f"[WS-SYNC] Published {payload.get('type')} to {channel}")
     except Exception as e:
@@ -41,19 +45,13 @@ def publish_timeline(job_id: str, timeline: list):
     _publish(job_id, {"type": "timeline", "timeline": timeline or []})
 
 def publish_completed(job_id: str, job_data: dict):
-    """
-    Job completed event for WS clients
-    """
-    try:
-        _publish(job_id, {
-            "type": "completed",
-            "status": "completed",
-            "summary": job_data.get("summary", {}),
-            "timeline": job_data.get("timeline", []),
-            "stats": job_data.get("stats", {"total_logs": 0, "detected_threats": 0})
-        })
-    except Exception as e:
-        print(f"[WS ERROR] publish_completed job={job_id}: {e}")
+    _publish(job_id, {
+        "type": "completed",
+        "status": "completed",
+        "summary": job_data.get("summary", {}),
+        "timeline": job_data.get("timeline", []),
+        "stats": job_data.get("stats", {})
+    })
 
 def publish_error(job_id: str, message: str):
     _publish(job_id, {"type": "error", "message": message})

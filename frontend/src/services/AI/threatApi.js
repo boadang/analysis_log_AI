@@ -1,5 +1,5 @@
 // frontend/src/services/ai/threatApi.js
-const BASE = "http://127.0.0.1:8000/api/v1/threat";
+const BASE = "http://127.0.0.1:8000/api/v1/threat_hunt";
 
 export async function getLogSources() {
   console.log("Fetching log sources with token:", localStorage.getItem('authToken'));

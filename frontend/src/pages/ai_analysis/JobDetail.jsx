@@ -1,5 +1,5 @@
 // frontend/src/pages/ai_analysis/JobDetail.jsx
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import ThreatTimeline from "./components/ThreatTimeLine";
 import {
@@ -27,8 +27,13 @@ export default function JobDetail() {
     status: null,
     summary: null,
     timeline: null,
-    logs: []
+    logs: [],
+    total_logs: null,
+    detected_threats: null
   });
+
+  // 🔥 Track if job is completed to prevent reset
+  const isCompletedRef = useRef(false);
 
   /* -------------------------
    * Fetch job from DB
@@ -39,8 +44,33 @@ export default function JobDetail() {
       setLoading(true);
       const data = await getJob(jobId);
       setJob(data);
+      
+      console.log("[JobDetail] Loaded job from DB:", data.status);
+      
+      // 🔥 FIX: Only reset wsPatch if job is actually completed in DB
+      // Don't reset if we just received completed message
+      if (data.status === "completed" || data.status === "failed") {
+        console.log("[JobDetail] Job finished in DB, keeping final state");
+        isCompletedRef.current = true;
+        // Keep the wsPatch data, just mark as completed
+        setWsPatch(p => ({
+          ...p,
+          status: data.status
+        }));
+      } else if (!isCompletedRef.current) {
+        // Only reset if we're not in completed state
+        console.log("[JobDetail] Job still running, resetting wsPatch");
+        setWsPatch({
+          status: null,
+          summary: null,
+          timeline: null,
+          logs: []
+        });
+      }
+      
       setError("");
-    } catch {
+    } catch (err) {
+      console.error("[JobDetail] Load job error:", err);
       setError("Không thể tải job");
     } finally {
       setLoading(false);
@@ -54,10 +84,26 @@ export default function JobDetail() {
   /* -------------------------
    * Enable WS only if running
    * ------------------------- */
-  const enableWS =
-    job &&
-    job.status !== "completed" &&
-    job.status !== "failed";
+  const enableWS = useMemo(() => {
+    // 🔥 FIX: Check BOTH job status and wsPatch status
+    const jobStatus = job?.status;
+    const patchStatus = wsPatch.status;
+    const effectiveStatus = patchStatus || jobStatus;
+    
+    const shouldEnable = 
+      job && 
+      effectiveStatus !== "completed" && 
+      effectiveStatus !== "failed";
+    
+    console.log("[JobDetail] enableWS check:", {
+      jobStatus,
+      patchStatus,
+      effectiveStatus,
+      shouldEnable
+    });
+    
+    return shouldEnable;
+  }, [job, wsPatch.status]);
 
   const { connected, lastMessage, logs: wsLogs } = useJobWS(
     enableWS ? jobId : null
@@ -69,12 +115,16 @@ export default function JobDetail() {
   useEffect(() => {
     if (!lastMessage) return;
 
+    console.log("[JobDetail] Processing WS message:", lastMessage.type);
+
     switch (lastMessage.type) {
       case "status":
+        console.log("[JobDetail] Status update:", lastMessage.status);
         setWsPatch(p => ({ ...p, status: lastMessage.status }));
         break;
 
       case "summary":
+        console.log("[JobDetail] Summary update");
         setWsPatch(p => ({
           ...p,
           summary: {
@@ -85,6 +135,7 @@ export default function JobDetail() {
         break;
 
       case "timeline":
+        console.log("[JobDetail] Timeline update");
         setWsPatch(p => ({
           ...p,
           timeline: lastMessage.timeline
@@ -92,12 +143,38 @@ export default function JobDetail() {
         break;
 
       case "completed":
-        setWsPatch(p => ({ ...p, status: "completed" }));
-        loadJob(); // 🔥 SYNC DB
+        console.log("[JobDetail] 🎉 Job COMPLETED message received!");
+        console.log("[JobDetail] Completed data:", lastMessage);
+        
+        // 🔥 FIX: Mark as completed IMMEDIATELY
+        isCompletedRef.current = true;
+        
+        setWsPatch(p => {
+          const newPatch = { 
+            ...p, 
+            status: "completed",
+            summary: lastMessage.summary || p.summary,
+            timeline: lastMessage.timeline || p.timeline,
+            total_logs: lastMessage.stats?.total_logs ?? p.total_logs,
+            detected_threats: lastMessage.stats?.detected_threats ?? p.detected_threats,
+          };
+          console.log("[JobDetail] New wsPatch after completed:", newPatch);
+          return newPatch;
+        });
+        
+        // 🔥 FIX: Load job with longer delay to ensure DB commit
+        console.log("[JobDetail] Scheduling DB sync in 2 seconds...");
+        setTimeout(() => {
+          console.log("[JobDetail] Loading final job state from DB...");
+          loadJob();
+        }, 2000);
         break;
 
       case "error":
+        console.error("[JobDetail] Error:", lastMessage.message);
         setError(lastMessage.message);
+        setWsPatch(p => ({ ...p, status: "failed" }));
+        isCompletedRef.current = true;
         break;
 
       default:
@@ -122,7 +199,7 @@ export default function JobDetail() {
   const mergedJob = useMemo(() => {
     if (!job) return null;
 
-    return {
+    const merged = {
       ...job,
       status: wsPatch.status ?? job.status,
       summary: {
@@ -130,8 +207,18 @@ export default function JobDetail() {
         ...wsPatch.summary
       },
       timeline: wsPatch.timeline ?? job.timeline,
-      liveLogs: wsPatch.logs
+      liveLogs: wsPatch.logs,
+      total_logs: wsPatch.total_logs ?? job.total_logs,
+      detected_threats: wsPatch.detected_threats ?? job.detected_threat,
     };
+
+    console.log("[JobDetail] Merged job:", {
+      jobStatus: job.status,
+      wsPatchStatus: wsPatch.status,
+      mergedStatus: merged.status
+    });
+
+    return merged;
   }, [job, wsPatch]);
 
   /* -------------------------
@@ -165,9 +252,6 @@ export default function JobDetail() {
   if (error && !job) return <div className="p-6 text-red-600">{error}</div>;
   if (!mergedJob) return null;
 
-  console.log("Detailed view of job:", mergedJob);
-  console.log("Details content of job final:", job);
-
   /* -------------------------
    * UI
    * ------------------------- */
@@ -185,10 +269,20 @@ export default function JobDetail() {
           <span className={`text-xs ${connected ? "text-green-600" : "text-gray-400"}`}>
             ● {connected ? "Live" : "Offline"}
           </span>
-          <span className="px-3 py-1 rounded text-sm bg-gray-100">
+          <span className={`px-3 py-1 rounded text-sm font-medium ${
+            mergedJob.status === "completed" ? "bg-green-100 text-green-800" :
+            mergedJob.status === "failed" ? "bg-red-100 text-red-800" :
+            mergedJob.status === "running" ? "bg-blue-100 text-blue-800" :
+            "bg-gray-100 text-gray-800"
+          }`}>
             {mergedJob.status}
           </span>
-          <button onClick={loadJob} className="border px-2 py-1 rounded">🔄</button>
+          <button 
+            onClick={loadJob} 
+            className="border px-2 py-1 rounded hover:bg-gray-50 text-sm"
+          >
+            🔄
+          </button>
         </div>
       </div>
 
@@ -203,36 +297,50 @@ export default function JobDetail() {
       {/* Charts */}
       <div className="grid grid-cols-2 gap-6">
         <ChartBox title="Risk Distribution">
-          <PieChart>
-            <Pie data={riskChartData} dataKey="value" outerRadius={80} label>
-              {riskChartData.map((e, i) => <Cell key={i} fill={e.color} />)}
-            </Pie>
-            <Tooltip />
-            <Legend />
-          </PieChart>
+          {riskChartData.length > 0 ? (
+            <PieChart>
+              <Pie data={riskChartData} dataKey="value" outerRadius={80} label>
+                {riskChartData.map((e, i) => <Cell key={i} fill={e.color} />)}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          ) : (
+            <div className="flex items-center justify-center w-full text-gray-400">
+              No data available
+            </div>
+          )}
         </ChartBox>
 
         <ChartBox title="Threat Types">
-          <BarChart data={threatTypeData}>
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="value" fill="#3b82f6" />
-          </BarChart>
+          {threatTypeData.length > 0 ? (
+            <BarChart data={threatTypeData}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="value" fill="#3b82f6" />
+            </BarChart>
+          ) : (
+            <div className="flex items-center justify-center w-full text-gray-400">
+              No threats detected
+            </div>
+          )}
         </ChartBox>
       </div>
 
       {/* Live Logs */}
-      <div className="bg-black text-green-400 p-4 rounded font-mono text-xs">
+      <div className="bg-black text-green-400 p-4 rounded font-mono text-xs max-h-96 overflow-y-auto">
         {mergedJob.liveLogs.length === 0
-          ? "No live logs"
+          ? <div className="text-gray-500">No live logs</div>
           : mergedJob.liveLogs.map((l, i) => <div key={i}>{l}</div>)}
       </div>
 
       {/* Threat Timeline */}
-      <ThreatTimeline timeline={job.timeline} />
+      <ThreatTimeline timeline={mergedJob.timeline} />
 
-      <Link to="/ai-analysis" className="text-blue-600 mt-10">← Back</Link>
+      <Link to="/ai-analysis" className="text-blue-600 mt-10 inline-block hover:underline">
+        ← Back to Jobs
+      </Link>
     </div>
   );
 }

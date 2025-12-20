@@ -1,6 +1,6 @@
 # backend/app/models/alert.py
 from sqlalchemy import Column, Integer, String, DateTime, Numeric, ForeignKey, func
-from app.database.postgres import Base
+from .base import Base
 from sqlalchemy.orm import relationship
 
 class Alert(Base):

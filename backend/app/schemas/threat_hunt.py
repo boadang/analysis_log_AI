@@ -1,3 +1,4 @@
+# backend/app/schemas/threat_hunt.py
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime
@@ -11,9 +12,7 @@ class HuntScopeCreate(BaseModel):
     name: str = Field(..., example="Suspicious PowerShell Activity")
     description: Optional[str] = None
 
-    data_sources: List[str] = Field(
-        ..., example=["windows_event", "firewall", "proxy"]
-    )
+    dataset_id: int
 
     time_range_start: datetime
     time_range_end: datetime
@@ -38,6 +37,8 @@ class HypothesisCreate(BaseModel):
     techniques: List[str] = Field(
         ..., example=["T1059.001", "T1021"]
     )
+    
+    rational: str | None = None
 
 
 # -----------------------

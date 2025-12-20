@@ -12,6 +12,9 @@ router = APIRouter()
 
 @router.websocket("/jobs/{job_id}")
 async def job_ws(websocket: WebSocket, job_id: UUID):
+    """
+    WebSocket endpoint for real-time job updates
+    """
     token = websocket.query_params.get("token")
     
     # Validate token
@@ -29,11 +32,12 @@ async def job_ws(websocket: WebSocket, job_id: UUID):
         await websocket.close(code=4001, reason="Invalid token")
         return
 
-    # Accept connection
+    # Accept connection FIRST
     await websocket.accept()
-    print(f"[WS] Client connected to job={job_id}")
+    print(f"[WS] ✅ WebSocket accepted for job={job_id}")
     
     db: Session = SessionLocal()
+    registered = False  # Track if we registered with manager
 
     try:
         # Verify job exists and belongs to user
@@ -47,49 +51,64 @@ async def job_ws(websocket: WebSocket, job_id: UUID):
             await websocket.close(code=4004, reason="Job not found")
             return
 
-        # Register with ws_manager
+        # 🔥 FIX: Register IMMEDIATELY after accept and validation
         await job_ws_manager.connect(job_id, websocket)
-        print(f"[WS] Registered with ws_manager for job={job_id}")
+        registered = True
+        print(f"[WS] ✅ Registered with ws_manager for job={job_id}")
 
-        # 🔥 KEEP-ALIVE LOOP - Don't wait for client messages
+        # Keep-alive loop
         try:
             while True:
-                # Send ping every 30 seconds to keep connection alive
                 try:
-                    # Try to receive with timeout
+                    # Wait for message with timeout
                     message = await asyncio.wait_for(
                         websocket.receive_text(),
                         timeout=30.0
                     )
                     
-                    # Handle pings from client (optional)
+                    # Handle ping from client
                     if message == "ping":
                         await websocket.send_text("pong")
+                    elif message == "pong":
+                        # Client responded to our ping
+                        pass
+                    else:
+                        print(f"[WS] ⚠️ Unknown message from client: {message}")
                         
                 except asyncio.TimeoutError:
-                    # No message in 30s - send ping to keep alive
+                    # No message in 30s - send ping to keep connection alive
                     try:
                         await websocket.send_text("ping")
-                    except Exception:
-                        # Connection dead
+                    except Exception as e:
+                        print(f"[WS] ❌ Ping failed, connection dead: {e}")
                         break
                         
-                except Exception:
-                    # Any other error means connection is dead
+                except WebSocketDisconnect:
+                    print(f"[WS] 🔌 Client disconnected job={job_id}")
+                    break
+                    
+                except Exception as e:
+                    print(f"[WS] ❌ Receive error job={job_id}: {e}")
                     break
                     
         except Exception as e:
-            print(f"[WS] Loop error job={job_id}: {e}")
+            print(f"[WS] ❌ Loop error job={job_id}: {e}")
+            import traceback
+            traceback.print_exc()
 
     except WebSocketDisconnect:
-        print(f"[WS] Client disconnected job={job_id}")
+        print(f"[WS] 🔌 Client disconnected during setup job={job_id}")
 
     except Exception as e:
-        print(f"[WS ERROR] job={job_id}: {e}")
+        print(f"[WS] ❌ Error job={job_id}: {e}")
         import traceback
         traceback.print_exc()
 
     finally:
-        job_ws_manager.disconnect(job_id, websocket)
+        # 🔥 FIX: Await disconnect if we registered
+        if registered:
+            await job_ws_manager.disconnect(job_id, websocket)
+            print(f"[WS] ✅ Unregistered from ws_manager for job={job_id}")
+        
         db.close()
         print(f"[WS] 🔌 Cleanup completed for job={job_id}")

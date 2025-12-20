@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .ai_analysis import router as analysis_http_router
 from .ws import router as analysis_ws_router
-from .threat import router as threat_router
+from .hunt_ws import router as hunt_ws_router
 from .chatbot import router as chatbot_router
 from .threat_hunt import router as threat_hunt_router
 
@@ -24,6 +24,13 @@ api_router.include_router(
     tags=["Threat Hunting"]
 )
 
+# Threat Hunting - WebSocket (⚠️ KHÔNG auth dependency)
+api_router.include_router(
+    hunt_ws_router,
+    prefix="/hunt_ws",
+    tags=["Threat Hunting WS"]
+)
+
 # AI Analysis - HTTP
 api_router.include_router(
     analysis_http_router,
@@ -38,16 +45,9 @@ api_router.include_router(
     tags=["AI Analysis WS"]
 )
 
-# Threat hunting
-api_router.include_router(
-    threat_router,
-    prefix="/threat",
-    tags=["ThreatHunting"]
-)
-
 # Chatbot
 api_router.include_router(
-    chatbot_router,
+    chatbot_router, 
     prefix="/chatbot",
     tags=["Chatbot"]
 )

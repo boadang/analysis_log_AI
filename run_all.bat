@@ -17,10 +17,12 @@ set CELERY_RESULT_BACKEND=redis://localhost:6379/0
 echo Celery configured to use Redis.
 echo.
 
+REM ===========================
+REM FORCE KILL PORTS
+REM ===========================
 echo ========================================
 echo   FORCE KILL PORTS (8000, 11434)
 echo ========================================
-
 for %%p in (8000 11434) do (
     echo Checking port %%p ...
     for /f "tokens=5" %%a in ('netstat -ano ^| findstr :%%p ^| findstr LISTENING') do (
@@ -52,17 +54,14 @@ echo   CLEANING PYTHON CACHE
 echo ========================================
 cd backend
 if exist __pycache__ (
-    echo Removing __pycache__ ...
     rmdir /s /q __pycache__ 2>nul
 )
 if exist .celery (
-    echo Removing .celery cache...
     rmdir /s /q .celery 2>nul
 )
-echo Removing .pyc files...
 for /r %%f in (*.pyc) do del /f /q "%%f" 2>nul
-echo Cache cleaned.
 cd ..
+echo Cache cleaned.
 echo.
 
 REM ===========================
@@ -78,7 +77,6 @@ if %errorlevel%==0 (
     echo Starting Redis...
     start "Redis" cmd /k "redis-server.exe"
 )
-REM Wait Redis ready
 echo Waiting for Redis to start on port 6379...
 :wait_redis
 powershell -Command "try {exit $(Test-NetConnection -ComputerName 127.0.0.1 -Port 6379).TcpTestSucceeded} catch {exit 0}"
@@ -101,30 +99,21 @@ timeout /t 2 >nul
 echo.
 
 REM ===========================
-REM START CELERY
+REM START CELERY WORKERS
 REM ===========================
 echo ========================================
-echo   START CELERY WORKER
+echo   START CELERY WORKER - AI QUEUE
 echo ========================================
-start "Celery Worker" cmd /k "cd backend && set CELERY_BROKER_URL=redis://localhost:6379/0 && set CELERY_RESULT_BACKEND=redis://localhost:6379/0 && celery -A app.core.celery_app worker --loglevel=info --pool=threads -E"
+start "Celery AI Worker" cmd /k "cd backend && set CELERY_BROKER_URL=redis://localhost:6379/0 && set CELERY_RESULT_BACKEND=redis://localhost:6379/1 && celery -A app.core.celery_app worker --loglevel=info --pool=threads -E -Q ai"
 
-REM Wait Celery ready
-echo Waiting for Celery worker to connect...
-:wait_celery
-cd backend
-for /f "delims=" %%i in ('celery -A app.core.celery_app status 2^>nul') do set CELERY_STATUS=%%i
-cd ..
-echo Celery status: %CELERY_STATUS%
-echo %CELERY_STATUS% | findstr /i "online" >nul
-if errorlevel 1 (
-    timeout /t 1 >nul
-    goto wait_celery
-)
-echo Celery worker is ready.
+echo ========================================
+echo   START CELERY WORKER - HUNT QUEUE
+echo ========================================
+start "Celery Hunt Worker" cmd /k "cd backend && set CELERY_BROKER_URL=redis://localhost:6379/0 && set CELERY_RESULT_BACKEND=redis://localhost:6379/1 && celery -A app.core.celery_app worker --loglevel=info --pool=threads -E -Q default"
 echo.
 
 REM ===========================
-REM START BACKEND
+REM START FASTAPI BACKEND
 REM ===========================
 echo ========================================
 echo   START FASTAPI BACKEND

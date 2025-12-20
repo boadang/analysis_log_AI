@@ -1,7 +1,11 @@
-export default function FilterPanel() {
+export default function FilterPanel({ onChange }) {
   return (
-    <div className="mb-4">
-      <input className="border p-2 rounded" placeholder="Search findings" />
-    </div>
+    <section className="bg-white p-4 rounded-xl shadow-md border border-gray-200 mb-4">
+      <input
+        className="w-full border rounded px-3 py-2"
+        placeholder="Search findings"
+        onChange={(e) => onChange?.(e.target.value)}
+      />
+    </section>
   );
 }

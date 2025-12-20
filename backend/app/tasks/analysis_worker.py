@@ -1,13 +1,17 @@
 # backend/app/tasks/analysis_worker.py
-import asyncio
 from celery import shared_task
 from app.database.postgres import SessionLocal
 from app.models.analysis_job import AnalysisJob
-from app.services.ai_processor import AIProcessor
 from app.services.analysis_runner import run_analysis_job
+from app.core.ws_manager import job_ws_manager
 import traceback
 
-@shared_task(name="tasks.analysis_worker.run_analysis_task")
+@shared_task(
+    name="ai.analysis.run",
+    queue="ai",
+    autoretry_for=(Exception,),
+    retry_kwargs={"max_retries": 3, "countdown": 15},
+)
 def run_analysis_task(job_id: int, file_path: str, model_name: str,
                       time_from=None, time_to=None, device_ids=None):
     """

@@ -23,7 +23,9 @@ const riskIcon = {
 export default function ThreatTimeline({ timeline = [] }) {
   const [selected, setSelected] = useState(null);
 
-  if (!timeline.length) {
+  const safeTimeLine = timeline || [];
+
+  if (!safeTimeLine.length) {
     return (
       <Card className="mt-4">
         <CardContent className="p-6 text-sm text-muted-foreground">
@@ -39,7 +41,7 @@ export default function ThreatTimeline({ timeline = [] }) {
       <Card className="lg:col-span-2">
         <CardContent className="p-4 space-y-3">
           <h3 className="text-lg font-semibold mb-2">Threat Timeline</h3>
-          {timeline.map((event, idx) => (
+          {safeTimeLine.map((event, idx) => (
             <div
               key={idx}
               className={`border rounded-2xl p-3 cursor-pointer transition hover:shadow ${
@@ -77,29 +79,29 @@ export default function ThreatTimeline({ timeline = [] }) {
           ) : (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Badge variant={riskColor[timeline[selected].risk_level] || "outline"}>
-                  {timeline[selected].risk_level?.toUpperCase()}
+                <Badge variant={riskColor[safeTimeLine[selected].risk_level] || "outline"}>
+                  {safeTimeLine[selected].risk_level?.toUpperCase()}
                 </Badge>
                 <span className="text-sm font-medium">
-                  {timeline[selected].threat_type}
+                  {safeTimeLine[selected].threat_type}
                 </span>
               </div>
 
               <div className="text-xs text-muted-foreground">
-                {timeline[selected].timestamp}
+                {safeTimeLine[selected].timestamp}
               </div>
 
               <div>
                 <p className="text-sm font-semibold">AI Summary</p>
                 <p className="text-sm">
-                  {timeline[selected].summary}
+                  {safeTimeLine[selected].summary}
                 </p>
               </div>
 
               <div>
                 <p className="text-sm font-semibold m-2">Raw Log</p>
                 <pre className="text-xs bg-black text-green-400 p-3 rounded-xl overflow-auto max-h-60">
-                  {timeline[selected].raw_log}
+                  {safeTimeLine[selected].raw_log}
                 </pre>
               </div>
             </div>
