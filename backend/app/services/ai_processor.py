@@ -24,47 +24,71 @@ class AIProcessor:
 
     @staticmethod
     def analyze_batch(logs: List[str]) -> List[Dict[str, Any]]:
-        """
-        Analyze multiple logs in ONE LLM call.
-
-        Return:
-            List of normalized AI analysis results
-        """
         if not logs:
+            print("[AI] ⚠️ Batch rỗng")
             return []
 
+        print(f"[AI] 🚀 Bắt đầu phân tích batch {len(logs)} logs")
+        print(f"[AI] Model đang dùng: {settings.OLLAMA_MODEL}")
+
         prompt = AIProcessor._build_batch_prompt(logs)
+        print(f"[AI] 📤 Gửi prompt đến Ollama (độ dài: {len(prompt)} ký tự)")
 
         try:
+            print("[AI] ⏳ Đang gọi ollama.chat()...")
             response = ollama.chat(
                 model=settings.OLLAMA_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 options={
                     "temperature": 0.1,
-                    "num_ctx": 4096,
+                    "num_ctx": 8192,  # tăng lên để tránh cắt prompt
                 },
             )
 
             content = response["message"]["content"]
+            print(f"[AI] ✅ Ollama trả về (độ dài: {len(content)} ký tự):")
+            print("-" * 60)
+            print(content[:2000])  # in 2000 ký tự đầu
+            if len(content) > 2000:
+                print("... (còn lại bị cắt để hiển thị)")
+            print("-" * 60)
+
             content = AIProcessor._clean_json(content)
+            print(f"[AI] 🧹 Sau khi clean JSON: {content[:500]}...")
 
             parsed = json.loads(content)
             results = parsed.get("results", [])
 
             if not isinstance(results, list):
-                raise ValueError("Invalid AI output format")
+                raise ValueError(f"results không phải list: {results}")
+
+            print(f"[AI] ✅ Parse JSON thành công, có {len(results)} kết quả")
 
             normalized: List[Dict] = []
             for i, r in enumerate(results):
-                normalized.append(
-                    AIProcessor._normalize_result(r, logs[i])
-                )
+                norm = AIProcessor._normalize_result(r, logs[i])
+                threat_status = "🚨 THREAT" if norm["is_threat"] else "✅ normal"
+                print(f"[AI] Log {i+1}: {threat_status} | risk={norm['risk_level']} | confidence={norm['confidence']} | type={norm['threat_type']}")
+                normalized.append(norm)
 
             return normalized
 
+        except json.JSONDecodeError as e:
+            print(f"[AI] ❌ JSON parse failed: {e}")
+            print(f"[AI] Nội dung thô từ Ollama: {content if 'content' in locals() else 'N/A'}")
+        except ollama.ResponseError as e:
+            print(f"[AI] ❌ Ollama ResponseError: {e}")
+            print(f"[AI] Status code: {e.status_code if hasattr(e, 'status_code') else 'N/A'}")
+        except ollama.RequestError as e:
+            print(f"[AI] ❌ Ollama RequestError (không kết nối được): {e}")
         except Exception as e:
-            print(f"[AI] ❌ Batch analysis failed: {e}")
-            return [AIProcessor._safe_fallback(log) for log in logs]
+            print(f"[AI] ❌ Lỗi không xác định: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Fallback
+        print(f"[AI] ⚠️ Dùng fallback cho {len(logs)} logs")
+        return [AIProcessor._safe_fallback(log) for log in logs]
 
     # =====================================================
     # NORMALIZATION

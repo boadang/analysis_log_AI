@@ -52,7 +52,7 @@ export default function ThreatHuntingPage() {
   const handleExecute = async (payload) => {
     const res = await executeHunt(huntId, payload);
 
-    console.log("Excution:", execution.id)
+    console.log("✅ [ThreatHuntingPage] Execution created:", res);
 
     setExecution({
       id: res.execution_id || res.id,
@@ -83,26 +83,79 @@ export default function ThreatHuntingPage() {
   };
 
   // =========================
-  // WebSocket Lifecycle
+  // Load existing findings from API (fallback)
+  // =========================
+  useEffect(() => {
+    if (!huntId) return;
+    
+    const loadFindings = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/v1/threat_hunt/${huntId}/findings`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.items && data.items.length > 0) {
+            console.log(`✅ [API] Loaded ${data.items.length} existing findings`);
+            setFindings(data.items);
+          }
+        }
+      } catch (err) {
+        console.error('❌ [API] Failed to load findings:', err);
+      }
+    };
+    
+    loadFindings();
+  }, [huntId]);
+
+  // =========================
+  // WebSocket Lifecycle - FIXED
   // =========================
   useEffect(() => {
     if (!huntId) return;
 
     const token = localStorage.getItem("authToken");
-    if (!token) return;
+    if (!token) {
+      console.error("❌ [WS] No auth token found");
+      return;
+    }
 
+    // FIX 1: Đảm bảo URL đúng với backend route
     const wsUrl = `ws://127.0.0.1:8000/api/v1/hunt_ws/hunts/${huntId}?token=${token}`;
+    console.log(`🔌 [WS] Connecting to: ${wsUrl}`);
+    
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
     setWsStatus("connecting");
 
-    ws.onopen = () => setWsStatus("connected");
+    ws.onopen = () => {
+      console.log(`✅ [WS] Connected to hunt ${huntId}`);
+      setWsStatus("connected");
+    };
 
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
+      console.log(`📨 [WS] Message received:`, msg);
 
       switch (msg.type) {
+        case "initial":
+          // Load initial findings khi connect
+          console.log(`[WS] Initial data: ${msg.items?.length || 0} findings`);
+          if (msg.items && msg.items.length > 0) {
+            setFindings(msg.items);
+          }
+          break;
+
         case "execution_created":
+          console.log(`[WS] Execution created: ${msg.execution_id}`);
           setExecution(prev => ({
             ...prev,
             id: msg.execution_id,
@@ -110,6 +163,7 @@ export default function ThreatHuntingPage() {
           break;
 
         case "status":
+          console.log(`[WS] Status update: ${msg.status}`);
           setExecution(prev => ({
             ...prev,
             status: msg.status,
@@ -117,6 +171,7 @@ export default function ThreatHuntingPage() {
           break;
 
         case "progress":
+          console.log(`[WS] Progress: ${msg.processed}/${msg.total}`);
           setExecution(prev => ({
             ...prev,
             processed: msg.processed,
@@ -125,18 +180,51 @@ export default function ThreatHuntingPage() {
           break;
 
         case "finding":
+          console.log(`[WS] New finding:`, msg.item);
           setFindings(prev => [msg.item, ...prev]);
           break;
 
+        case "completed":
+          console.log(`[WS] Hunt completed:`, msg.summary);
+          setExecution(prev => ({
+            ...prev,
+            status: "completed",
+          }));
+          // Có thể show notification
+          alert(`✅ Hunt hoàn thành!\nLogs: ${msg.summary.total_logs}\nThreats: ${msg.summary.detected_threats}`);
+          break;
+
+        case "error":
+          console.error(`[WS] Error:`, msg.error);
+          setExecution(prev => ({
+            ...prev,
+            status: "failed",
+          }));
+          alert(`❌ Lỗi: ${msg.error}`);
+          break;
+
         default:
-          console.warn("Unknown WS message:", msg);
+          console.warn(`[WS] Unknown message type: ${msg.type}`);
       }
     };
 
-    ws.onerror = () => setWsStatus("error");
-    ws.onclose = () => setWsStatus("disconnected");
+    ws.onerror = (error) => {
+      console.error(`❌ [WS] Connection error:`, error);
+      setWsStatus("error");
+    };
 
-    return () => ws.close();
+    ws.onclose = (event) => {
+      console.log(`🔌 [WS] Disconnected (code: ${event.code}, reason: ${event.reason})`);
+      setWsStatus("disconnected");
+    };
+
+    // Cleanup khi unmount hoặc huntId thay đổi
+    return () => {
+      console.log(`🔌 [WS] Cleaning up connection for hunt ${huntId}`);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, [huntId]);
 
   // =========================
@@ -154,19 +242,26 @@ export default function ThreatHuntingPage() {
             </p>
           </div>
 
-          <span
-            className={`px-4 py-2 rounded-full text-sm font-medium ${
-              wsStatus === "connected"
-                ? "bg-green-500"
-                : wsStatus === "connecting"
-                ? "bg-yellow-500"
-                : wsStatus === "error"
-                ? "bg-red-500"
-                : "bg-gray-300 text-gray-700"
-            }`}
-          >
-            {wsStatus}
-          </span>
+          {/* WebSocket Status Indicator */}
+          <div className="flex items-center space-x-3">
+            <span className="text-sm opacity-75">WebSocket:</span>
+            <span
+              className={`px-4 py-2 rounded-full text-sm font-medium ${
+                wsStatus === "connected"
+                  ? "bg-green-500"
+                  : wsStatus === "connecting"
+                  ? "bg-yellow-500"
+                  : wsStatus === "error"
+                  ? "bg-red-500"
+                  : "bg-gray-300 text-gray-700"
+              }`}
+            >
+              {wsStatus === "connected" && "🟢 Connected"}
+              {wsStatus === "connecting" && "🟡 Connecting..."}
+              {wsStatus === "error" && "🔴 Error"}
+              {wsStatus === "disconnected" && "⚪ Disconnected"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -178,6 +273,7 @@ export default function ThreatHuntingPage() {
           <HuntScopePanel
             onCreate={async (payload) => {
               const res = await createHuntSession(payload);
+              console.log("✅ [Step 1] Hunt created:", res);
               setHuntId(res.hunt_id);
               setFindings([]);
               setExecution({ id: null, status: "idle", processed: 0, total: 0 });
@@ -197,6 +293,7 @@ export default function ThreatHuntingPage() {
             disabled={!huntId}
             onSave={async (payload) => {
               await saveHypothesis(huntId, payload);
+              console.log("✅ [Step 2] Hypothesis saved");
               setHypothesis(payload);
             }}
           />
@@ -240,51 +337,6 @@ export default function ThreatHuntingPage() {
             }}
           />
         </WorkflowCard>
-      </div>
-    </div>
-  );
-}
-
-// Component cho Summary Cards
-function SummaryCard({ title, value, iconColor, icon }) {
-  const colors = {
-    blue: "bg-blue-100 text-blue-600",
-    red: "bg-red-100 text-red-600",
-    orange: "bg-orange-100 text-orange-600",
-    yellow: "bg-yellow-100 text-yellow-600",
-    green: "bg-green-100 text-green-600",
-  };
-
-  const icons = {
-    total: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-    ),
-    alert: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-    ),
-    warning: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    ),
-    info: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    ),
-    check: (
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-    ),
-  };
-
-  return (
-    <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-500 text-sm mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-800">{value}</p>
-        </div>
-        <div className={`p-3 rounded-full ${colors[iconColor]}`}>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {icons[icon]}
-          </svg>
-        </div>
       </div>
     </div>
   );

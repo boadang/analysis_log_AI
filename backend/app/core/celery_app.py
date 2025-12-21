@@ -27,3 +27,18 @@ celery_app.conf.update(
     task_track_started=True,
 )
 
+# Force import để debug lỗi import
+print("=== Đang force import các task ===")
+try:
+    from app.tasks.hunt_tasks import execute_hunt_task
+    print("✓ Hunt task (hunt.execute) imported THÀNH CÔNG")
+except Exception as e:
+    print(f"✗ LỖI import hunt_task.py: {e}")
+    import traceback
+    traceback.print_exc()
+
+try:
+    from app.tasks.analysis_worker import run_analysis_task
+    print("✓ Analysis task (ai.analysis.run) imported THÀNH CÔNG")
+except Exception as e:
+    print(f"✗ LỖI import analysis_worker.py: {e}")

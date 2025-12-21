@@ -18,6 +18,8 @@ from app.dependencies import get_db, get_current_user
 from app.core.log_sources import LOG_SOURCE_CATALOG
 from datetime import datetime
 
+from app.models.user import User
+
 router = APIRouter()
 hunt_service = HuntService()
 
@@ -95,8 +97,9 @@ def save_hypothesis(
 # ---------------------------
 @router.post("/{hunt_id}/execute")
 def execute_hunt(hunt_id: int, data: HuntExecutionCreate, db: Session = Depends(get_db)):
-    try:
-        exec_obj = hunt_service.create_execution(db, hunt_id, data.dict())
+    try: 
+        print(HuntExecution.__table__.columns.keys())
+        exec_obj = hunt_service.create_execution(db, hunt_id, data.model_dump())
         return {"hunt_id": hunt_id, "execution_id": exec_obj.id, "status": exec_obj.status}
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Hunt not found")

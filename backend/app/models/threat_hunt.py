@@ -139,6 +139,9 @@ class HuntExecution(Base):
         Enum("quick", "standard", "deep", name="hunt_depth"),
         nullable=False,
     )
+    
+    # FIX: Thêm cột để lưu Celery task ID
+    celery_task_id = Column(String(255), nullable=True)  # NEW
 
     strategy = Column(String(255))
 
@@ -190,7 +193,7 @@ class HuntFinding(Base):
 
     confidence = Column(Integer, nullable=False)
 
-    mitre_technique = Column(String(20))
+    mitre_technique = Column(String(100))
     evidence = Column(JSONB)
 
     hunt = relationship("HuntSession", back_populates="findings")
