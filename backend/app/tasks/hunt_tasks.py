@@ -91,7 +91,7 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int):
                     continue
 
                 try:
-                    service.add_finding(
+                    finding = service.add_finding(
                         db,
                         hunt_id,
                         {
@@ -105,6 +105,10 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int):
                         },
                     )
                     saved_findings += 1
+                    
+                    # 🔥 EMIT FINDING MỚI QUA WEBSOCKET
+                    _ws_finding(hunt_id, finding)
+                    
                 except Exception:
                     db.rollback()
 
@@ -123,6 +127,23 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int):
 # ======================================================
 # REDIS EVENTS
 # ======================================================
+
+def _ws_finding(hunt_id: int, finding):
+    """
+    Emit finding mới qua WebSocket
+    """
+    publish_to_hunt(hunt_id, {
+        "type": "finding",
+        "item": {
+            "id": finding.id,
+            "timestamp": finding.timestamp.isoformat() if finding.timestamp else None,
+            "event": finding.event,
+            "severity": finding.severity,
+            "confidence": finding.confidence,
+            "mitre_technique": finding.mitre_technique,
+            "source": finding.source,
+        }
+    })
 
 def _ws_status(hunt_id: int, status: str):
     publish_to_hunt(hunt_id, {

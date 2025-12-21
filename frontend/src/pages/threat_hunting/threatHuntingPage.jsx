@@ -191,7 +191,7 @@ export default function ThreatHuntingPage() {
             status: "completed",
           }));
           // Có thể show notification
-          alert(`✅ Hunt hoàn thành!\nLogs: ${msg.summary.total_logs}\nThreats: ${msg.summary.detected_threats}`);
+          alert(`Hunt hoàn thành!\nLogs: ${msg.summary.total_logs}\nThreats: ${msg.summary.detected_threats}`);
           break;
 
         case "error":
@@ -200,7 +200,7 @@ export default function ThreatHuntingPage() {
             ...prev,
             status: "failed",
           }));
-          alert(`❌ Lỗi: ${msg.error}`);
+          alert(`Lỗi: ${msg.error}`);
           break;
 
         default:
@@ -209,18 +209,18 @@ export default function ThreatHuntingPage() {
     };
 
     ws.onerror = (error) => {
-      console.error(`❌ [WS] Connection error:`, error);
+      console.error(`[WS] Connection error:`, error);
       setWsStatus("error");
     };
 
     ws.onclose = (event) => {
-      console.log(`🔌 [WS] Disconnected (code: ${event.code}, reason: ${event.reason})`);
+      console.log(`[WS] Disconnected (code: ${event.code}, reason: ${event.reason})`);
       setWsStatus("disconnected");
     };
 
     // Cleanup khi unmount hoặc huntId thay đổi
     return () => {
-      console.log(`🔌 [WS] Cleaning up connection for hunt ${huntId}`);
+      console.log(`[WS] Cleaning up connection for hunt ${huntId}`);
       if (ws.readyState === WebSocket.OPEN) {
         ws.close();
       }
@@ -332,6 +332,7 @@ export default function ThreatHuntingPage() {
           <ConclusionPanel
             disabled={execution.status !== "completed"}
             onSave={async (payload) => {
+              console.log("[THREAT HUNTING PAGE] payload nhận được:", payload)
               await saveConclusion(huntId, payload);
               alert("✅ Hunt đã được đóng");
             }}

@@ -27,15 +27,11 @@ export default function ConclusionPanel({ onSave, disabled }) {
     setLoading(true);
     try {
       await onSave({ 
-        verdict, 
-        final_verdict: verdict, 
-        confidence, 
-        notes,
-        recommendations,
-        impact_assessment: impactAssessment,
-        affected_systems: affectedSystems
+        verdict,
+        confidence,
+        recommendations
       });
-      
+
       // Reset form sau khi lưu thành công
       setVerdict("");
       setConfidence("");

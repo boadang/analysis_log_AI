@@ -28,13 +28,3 @@ def publish_to_hunt(hunt_id: int, payload: dict):
     channel = f"hunt_ws:{hunt_id}"
     _publish(channel, payload)
 
-
-# =========================
-# AI Analysis WS
-# =========================
-def publish_to_job(job_id: str, payload: dict):
-    """
-    Channel: job:{job_id}
-    """
-    channel = f"job:{job_id}"
-    _publish(channel, payload)

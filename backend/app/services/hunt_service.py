@@ -1,7 +1,6 @@
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
-import asyncio
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import NoResultFound
@@ -16,33 +15,33 @@ from app.models.threat_hunt import (
 )
 from app.models.log_dataset import LogDataset
 from app.models.analysis_log import AnalysisLog
-from app.schemas.threat_hunt import HuntScopeCreate
+from app.schemas.threat_hunt import (
+    HuntScopeCreate,
+    HuntConclusionCreate,
+)
 
+VERDICT_MAP = {
+    "confirmed_threat": "true_positive",
+    "false_positive": "false_positive",
+    "inconclusive": "inconclusive",
+}
+
+RISK_MAP = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+}
 
 class HuntService:
     """
     Core Threat Hunting Service
 
-    Quy ước:
-    - Chỉ xử lý nghiệp vụ
-    - Không phụ thuộc WebSocket / FastAPI lifecycle
-    - Realtime đi qua Redis bridge
+    Nguyên tắc:
+    - Chỉ xử lý nghiệp vụ + database
+    - KHÔNG WebSocket
+    - KHÔNG Redis
+    - KHÔNG phụ thuộc FastAPI lifecycle
     """
-
-    # =====================================================
-    # INTERNAL – REDIS WS EMIT (SAFE)
-    # =====================================================
-    @staticmethod
-    def _emit_ws(hunt_id: int, payload: dict):
-        """
-        Publish realtime event cho Hunt WS
-        (qua Redis – giống AI Analysis)
-        """
-        try:
-            from app.core.hunt_ws_emitter import hunt_ws_emit
-            hunt_ws_emit(hunt_id, payload)
-        except Exception as e:
-            print(f"⚠️ [HUNT_SERVICE] WS emit failed: {e}")
 
     # =====================================================
     # DATASET / LOGS
@@ -50,7 +49,7 @@ class HuntService:
     def get_dataset_logs(self, db: Session):
         return db.query(LogDataset).all()
 
-    def get_analysis_logs(self, db: Session, hunt_id: int):
+    def get_analysis_logs(self, db: Session, hunt_id: int) -> List[AnalysisLog]:
         hunt = self._get_hunt_or_404(db, hunt_id)
 
         if not hunt.dataset_id:
@@ -70,7 +69,6 @@ class HuntService:
             .count()
         )
 
-        # Auto-parse nếu chưa có logs
         if existing_count == 0:
             self._parse_dataset_logs(db, dataset)
 
@@ -82,9 +80,6 @@ class HuntService:
         )
 
     def _parse_dataset_logs(self, db: Session, dataset: LogDataset):
-        """
-        Parse raw log file → analysis_logs
-        """
         file_path = Path(dataset.file_path)
         if not file_path.exists():
             raise FileNotFoundError(dataset.file_path)
@@ -136,7 +131,7 @@ class HuntService:
             .one_or_none()
         )
         if not dataset:
-            raise ValueError(f"Dataset {scope.dataset_id} not found")
+            raise HTTPException(f"Dataset {scope.dataset_id} not found")
 
         hunt = HuntSession(
             name=scope.name,
@@ -152,7 +147,6 @@ class HuntService:
         db.add(hunt)
         db.commit()
         db.refresh(hunt)
-
         return hunt
 
     # =====================================================
@@ -164,16 +158,16 @@ class HuntService:
         hunt_id: int,
         data: Dict[str, Any],
         user_id: int,
-    ):
+    ) -> HuntHypothesis:
         hunt = self._get_hunt_or_404(db, hunt_id)
         if hunt.status == "closed":
-            raise ValueError("Hunt already closed")
+            raise HTTPException("Hunt already closed")
 
         text = data.get("hypothesis")
         techniques = data.get("techniques", [])
 
         if not text:
-            raise ValueError("Hypothesis is required")
+            raise HTTPException("Hypothesis is required")
 
         hypothesis = (
             db.query(HuntHypothesis)
@@ -213,7 +207,7 @@ class HuntService:
 
         hunt = self._get_hunt_or_404(db, hunt_id)
         if hunt.status in ("completed", "closed"):
-            raise ValueError("Cannot execute closed hunt")
+            raise HTTPException("Cannot execute closed hunt")
 
         exec_obj = HuntExecution(
             hunt_id=hunt_id,
@@ -236,17 +230,6 @@ class HuntService:
 
         exec_obj.celery_task_id = task.id
         db.commit()
-
-        # 🔔 Realtime notify
-        self._emit_ws(
-            hunt_id,
-            {
-                "type": "execution_started",
-                "execution_id": exec_obj.id,
-                "status": "running",
-            },
-        )
-
         return exec_obj
 
     def update_execution_status(
@@ -254,7 +237,7 @@ class HuntService:
         db: Session,
         execution_id: int,
         status: str,
-    ):
+    ) -> HuntExecution:
         execution = (
             db.query(HuntExecution)
             .filter(HuntExecution.id == execution_id)
@@ -264,21 +247,11 @@ class HuntService:
             raise NoResultFound("Execution not found")
 
         execution.status = status
-        if status == "completed":
+        if status in ("completed", "failed", "stopped"):
             execution.finished_at = datetime.utcnow()
 
         db.commit()
         db.refresh(execution)
-
-        self._emit_ws(
-            execution.hunt_id,
-            {
-                "type": "execution_status",
-                "execution_id": execution.id,
-                "status": status,
-            },
-        )
-
         return execution
 
     # =====================================================
@@ -300,23 +273,6 @@ class HuntService:
         db.add(finding)
         db.commit()
         db.refresh(finding)
-
-        self._emit_ws(
-            hunt_id,
-            {
-                "type": "finding_added",
-                "item": {
-                    "id": finding.id,
-                    "timestamp": finding.timestamp.isoformat(),
-                    "source": finding.source,
-                    "event": finding.event,
-                    "severity": finding.severity,
-                    "confidence": finding.confidence,
-                    "mitre_technique": finding.mitre_technique,
-                },
-            },
-        )
-
         return finding
 
     def get_findings(self, db: Session, hunt_id: int) -> Dict[str, Any]:
@@ -345,28 +301,28 @@ class HuntService:
         data: Dict[str, Any],
         user_id: int,
     ) -> HuntConclusion:
+
         hunt = self._get_hunt_or_404(db, hunt_id)
         if hunt.status == "closed":
-            raise ValueError("Hunt already closed")
+            raise HTTPException(status_code=400, detail="Hunt already closed")
+
+        verdict = VERDICT_MAP[data["verdict"]]
+        risk_level = RISK_MAP[data["confidence"]]
 
         conclusion = HuntConclusion(
             hunt_id=hunt_id,
-            verdict=data["verdict"],
-            risk_level=data["risk_level"],
-            recommendation=data.get("recommendation"),
+            verdict=verdict,
+            risk_level=risk_level,
+            recommendation=data.get("recommendations"),
             closed_by=user_id,
             closed_at=datetime.utcnow(),
         )
 
         hunt.status = "closed"
+
         db.add(conclusion)
         db.commit()
         db.refresh(conclusion)
-
-        self._emit_ws(
-            hunt_id,
-            {"type": "hunt_closed"},
-        )
 
         return conclusion
 
@@ -381,8 +337,6 @@ class HuntService:
         execution.status = "paused"
         db.commit()
         db.refresh(execution)
-
-        self._emit_ws(hunt_id, {"type": "status", "status": "paused"})
         return execution
 
     def stop_execution(self, db: Session, hunt_id: int, execution_id: int):
@@ -401,8 +355,6 @@ class HuntService:
         execution.finished_at = datetime.utcnow()
         db.commit()
         db.refresh(execution)
-
-        self._emit_ws(hunt_id, {"type": "status", "status": "stopped"})
         return execution
 
     # =====================================================

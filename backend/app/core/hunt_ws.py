@@ -1,5 +1,4 @@
 # backend/app/api/core/hunt_ws.py
-
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import asyncio
 import json
@@ -24,7 +23,9 @@ async def hunt_websocket(
     # 1️⃣ Auth
     try:
         payload = verify_access_token(token)
-        logger.info(f"✅ User {payload.get('sub')} connected hunt {hunt_id}")
+        logger.info(
+            f"✅ User {payload.get('sub')} authenticated hunt={hunt_id}"
+        )
     except Exception:
         await websocket.close(code=1008)
         return
@@ -57,16 +58,22 @@ async def hunt_websocket(
                 "summary": data.get("summary"),
             })
 
-        # 3️⃣ Keep alive
+        # 3️⃣ Keep-alive
         while True:
             try:
-                msg = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                msg = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=30
+                )
                 if json.loads(msg).get("type") == "pong":
                     pass
+
             except asyncio.TimeoutError:
                 await websocket.send_json({"type": "ping"})
+
             except WebSocketDisconnect:
                 break
 
     finally:
         await ws_manager.disconnect(hunt_id, websocket)
+        logger.info(f"🧹 WS cleanup hunt={hunt_id}")

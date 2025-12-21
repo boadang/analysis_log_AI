@@ -82,10 +82,15 @@ class HuntFindingsResponse(BaseModel):
 
 class HuntConclusionCreate(BaseModel):
     verdict: Literal[
-        "true_positive",
+        "confirmed_threat",
         "false_positive",
         "inconclusive"
     ]
 
-    risk_level: Literal["low", "medium", "high", "critical"]
-    recommendation: Optional[str] = None
+    confidence: Literal[
+        "low",
+        "medium",
+        "high"
+    ]
+
+    recommendations: Optional[str] = None
