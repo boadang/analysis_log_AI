@@ -1,6 +1,9 @@
+// frontend/src/pages/threat_hunting/ThreatHuntHistoryPage.jsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
-export default function ThreatHuntHistoryPage({ onViewHunt, onCreateNew }) {
+export default function ThreatHuntHistoryPage() {
+  const navigate = useNavigate();
   const [hunts, setHunts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -73,17 +76,15 @@ export default function ThreatHuntHistoryPage({ onViewHunt, onCreateNew }) {
                 Quản lý và xem lại tất cả các phiên hunt đã thực hiện
               </p>
             </div>
-            {onCreateNew && (
-              <button
-                onClick={onCreateNew}
-                className="px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-colors shadow-lg flex items-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>Tạo Hunt Mới</span>
-              </button>
-            )}
+            <button
+              onClick={() => navigate("/threat-hunting/new")}
+              className="px-6 py-3 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-colors shadow-lg flex items-center space-x-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Tạo Hunt Mới</span>
+            </button>
           </div>
         </div>
       </div>
@@ -155,7 +156,10 @@ export default function ThreatHuntHistoryPage({ onViewHunt, onCreateNew }) {
         </div>
 
         {/* Hunt Sessions Table */}
-        <HuntSessionsTable hunts={filteredHunts} onViewHunt={onViewHunt} />
+        <HuntSessionsTable 
+          hunts={filteredHunts} 
+          onViewHunt={(huntId) => navigate(`/threat-hunting/${huntId}`)} 
+        />
       </div>
     </div>
   );
@@ -344,7 +348,7 @@ function HuntSessionsTable({ hunts, onViewHunt }) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onViewHunt && onViewHunt(hunt.id);
+                          onViewHunt(hunt.id);
                         }}
                         className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                       >
@@ -363,7 +367,7 @@ function HuntSessionsTable({ hunts, onViewHunt }) {
         <HuntDetailModal
           hunt={selectedHunt}
           onClose={() => setSelectedHunt(null)}
-          onView={() => onViewHunt && onViewHunt(selectedHunt.id)}
+          onView={() => onViewHunt(selectedHunt.id)}
         />
       )}
     </>

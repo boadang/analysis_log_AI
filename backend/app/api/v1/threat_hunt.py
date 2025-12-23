@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi import UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import NoResultFound
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 
 from app.models.threat_hunt import (

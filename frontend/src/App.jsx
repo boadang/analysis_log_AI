@@ -13,13 +13,30 @@ import Footer from './components/footer';
 import JobList from "./pages/ai_analysis/JobList";
 import CreateJob from "./pages/ai_analysis/CreateJob";
 import ThreatHuntingPage from "./pages/threat_hunting/threatHuntingPage";
+import ThreatHuntHistoryPage from "./pages/threat_hunting/ThreatHuntingHistoryPage";
 
 function App() {
   return (
     <>
       <Header />
       <Routes>
-        <Route path="/threat-hunt" element={<ThreatHuntingPage />} />
+        {/* History Page - Mặc định */}
+        <Route 
+          path="/threat-hunting" 
+          element={<ThreatHuntHistoryPage />} 
+        />
+
+        {/* Create New Hunt */}
+        <Route 
+          path="/threat-hunting/new" 
+          element={<ThreatHuntingPage />} 
+        />
+
+        {/* View Existing Hunt */}
+        <Route 
+          path="/threat-hunting/:huntId" 
+          element={<ThreatHuntingPage />} 
+        />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="/ai-analysis" element={<JobList />} />
         <Route path="/ai-analysis/create" element={<CreateJob />} />
