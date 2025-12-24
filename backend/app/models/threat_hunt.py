@@ -141,7 +141,7 @@ class HuntExecution(Base):
     )
     
     # FIX: Thêm cột để lưu Celery task ID
-    celery_task_id = Column(String(255), nullable=True)  # NEW
+    celery_task_id = Column(String(255), nullable=True)
 
     strategy = Column(String(255))
 
@@ -158,7 +158,7 @@ class HuntExecution(Base):
         default="queued",
         nullable=False,
     )
-
+    
     started_at = Column(DateTime)
     finished_at = Column(DateTime)
     error = Column(Text)

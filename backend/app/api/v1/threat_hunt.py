@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import NoResultFound
 from typing import List, Dict, Any, Optional
 import logging
+import traceback
 
 from app.models.threat_hunt import (
     HuntSession,
@@ -111,6 +112,7 @@ def execute_hunt(hunt_id: int, data: HuntExecutionCreate, db: Session = Depends(
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Hunt not found")
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
     
 @router.post("/{hunt_id}/executions/{execution_id}/pause")

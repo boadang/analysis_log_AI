@@ -19,8 +19,14 @@ from app.core.redis_ws_bridge import publish_to_hunt
     name="hunt.execute",
     autoretry_for=(Exception,),
     retry_kwargs={"max_retries": 3, "countdown": 10},
+    acks_late=True,
 )
-def execute_hunt_task(self, hunt_id: int, execution_id: int, user_id: int):
+def execute_hunt_task(
+        self, 
+        hunt_id: int, 
+        execution_id: int, 
+        user_id: int
+    ):
     db = SessionLocal()
     service = HuntService()
 
@@ -43,7 +49,14 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int, user_id: int):
         # ===============================
         # LOAD LOGS
         # ===============================
-        logs = service.get_analysis_logs(db, hunt_id, user_id)
+        hunt = service._get_hunt_or_404(db, hunt_id)
+        logs = service.get_analysis_logs(
+            db, 
+            hunt_id, 
+            user_id,
+            time_start=hunt.time_range_start,
+            time_end=hunt.time_range_end,
+        )
         raw_logs: List[str] = [l.raw_log for l in logs]
 
         total = len(raw_logs)
@@ -82,7 +95,7 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int, user_id: int):
             if execution.status == "stopped":
                 _ws_status(hunt_id, "stopped")
                 return
-
+            # AI processor
             batch = raw_logs[i : i + BATCH_SIZE]
             results = AIProcessor.analyze_batch(batch)
 

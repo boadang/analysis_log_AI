@@ -1,6 +1,6 @@
 # app/models/analysis_log.py
 
-from sqlalchemy import Column, Text, ForeignKey, Integer, text
+from sqlalchemy import Column, Text, ForeignKey, Integer, text, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -25,6 +25,9 @@ class AnalysisLog(Base):
         ForeignKey("log_datasets.id"),
         nullable=False
     )
+    
+    time_stamp = Column(DateTime, index = True)
+    
     created_by = Column(Integer, nullable = False)
 
     job = relationship("AnalysisJob", backref="logs")

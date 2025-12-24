@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import List, Dict, Any
 from pathlib import Path
+import re
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import NoResultFound
@@ -33,6 +35,8 @@ RISK_MAP = {
     "high": "high",
 }
 
+TIMESTAMP_REGEX = r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
+
 class HuntService:
     """
     Core Threat Hunting Service
@@ -50,11 +54,16 @@ class HuntService:
     def get_dataset_logs(self, db: Session, user: User):
         return db.query(LogDataset).filter(LogDataset.created_by == user.id).all()
 
-    def get_analysis_logs(self, db: Session, hunt_id: int, user_id: int) -> List[AnalysisLog]:
-        hunt = self._get_hunt_or_404(db, hunt_id)
+    def get_analysis_logs(
+        self,
+        db: Session,
+        hunt_id: int,
+        user_id: int,
+        time_start=None,
+        time_end=None,
+    ) -> list[AnalysisLog]:
 
-        if not hunt.dataset_id:
-            return []
+        hunt = self._get_hunt_or_404(db, hunt_id)
 
         dataset = (
             db.query(LogDataset)
@@ -67,28 +76,33 @@ class HuntService:
         if not dataset:
             return []
 
-        existing_count = (
+        # 👉 AUTO PARSE (LAZY)
+        count = (
             db.query(AnalysisLog)
-            .filter(AnalysisLog.dataset_id == dataset.id, LogDataset.created_by == user_id)
+            .filter(AnalysisLog.dataset_id == dataset.id)
             .count()
         )
-
-        if existing_count == 0:
+        if count == 0:
             self._parse_dataset_logs(db, dataset)
 
-        return (
-            db.query(AnalysisLog)
-            .filter(AnalysisLog.dataset_id == dataset.id, LogDataset.created_by == user_id)
-            .order_by(AnalysisLog.id.asc())
-            .all()
+        q = db.query(AnalysisLog).filter(
+            AnalysisLog.dataset_id == dataset.id
         )
+
+        if time_start:
+            q = q.filter(AnalysisLog.timestamp >= time_start)
+
+        if time_end:
+            q = q.filter(AnalysisLog.timestamp <= time_end)
+
+        return q.order_by(AnalysisLog.timestamp.asc()).all()
 
     def _parse_dataset_logs(self, db: Session, dataset: LogDataset):
         file_path = Path(dataset.file_path)
         if not file_path.exists():
             raise FileNotFoundError(dataset.file_path)
 
-        buffer: list[AnalysisLog] = []
+        buffer = []
         total = 0
 
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -97,13 +111,16 @@ class HuntService:
                 if not line:
                     continue
 
+                ts = None
+                m = re.search(TIMESTAMP_REGEX, line)
+                if m:
+                    ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+
                 buffer.append(
                     AnalysisLog(
                         dataset_id=dataset.id,
-                        job_id=None,
+                        timestamp=ts,
                         raw_log=line,
-                        parsed_result=None,
-                        threat_result=None,
                     )
                 )
                 total += 1
@@ -206,7 +223,7 @@ class HuntService:
         db: Session,
         hunt_id: int,
         execution: Dict[str, Any],
-        user_id: int
+        user_id: int,
     ) -> HuntExecution:
         from app.tasks.hunt_tasks import execute_hunt_task
 
