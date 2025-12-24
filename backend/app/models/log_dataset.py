@@ -22,6 +22,8 @@ class LogDataset(Base):
         nullable=False,
         default="prod"
     )
+    
+    created_by = Column(Integer, nullable = False)
 
     # File info
     file_path = Column(String(500), nullable=False)

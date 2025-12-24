@@ -19,6 +19,7 @@ from app.schemas.threat_hunt import (
     HuntScopeCreate,
     HuntConclusionCreate,
 )
+from app.models.user import User
 
 VERDICT_MAP = {
     "confirmed_threat": "true_positive",
@@ -46,10 +47,10 @@ class HuntService:
     # =====================================================
     # DATASET / LOGS
     # =====================================================
-    def get_dataset_logs(self, db: Session):
-        return db.query(LogDataset).all()
+    def get_dataset_logs(self, db: Session, user: User):
+        return db.query(LogDataset).filter(LogDataset.created_by == user.id).all()
 
-    def get_analysis_logs(self, db: Session, hunt_id: int) -> List[AnalysisLog]:
+    def get_analysis_logs(self, db: Session, hunt_id: int, user_id: int) -> List[AnalysisLog]:
         hunt = self._get_hunt_or_404(db, hunt_id)
 
         if not hunt.dataset_id:
@@ -57,7 +58,10 @@ class HuntService:
 
         dataset = (
             db.query(LogDataset)
-            .filter(LogDataset.id == hunt.dataset_id)
+            .filter(
+                LogDataset.id == hunt.dataset_id,
+                LogDataset.created_by == user_id
+            )
             .one_or_none()
         )
         if not dataset:
@@ -65,7 +69,7 @@ class HuntService:
 
         existing_count = (
             db.query(AnalysisLog)
-            .filter(AnalysisLog.dataset_id == dataset.id)
+            .filter(AnalysisLog.dataset_id == dataset.id, LogDataset.created_by == user_id)
             .count()
         )
 
@@ -74,7 +78,7 @@ class HuntService:
 
         return (
             db.query(AnalysisLog)
-            .filter(AnalysisLog.dataset_id == dataset.id)
+            .filter(AnalysisLog.dataset_id == dataset.id, LogDataset.created_by == user_id)
             .order_by(AnalysisLog.id.asc())
             .all()
         )
@@ -202,6 +206,7 @@ class HuntService:
         db: Session,
         hunt_id: int,
         execution: Dict[str, Any],
+        user_id: int
     ) -> HuntExecution:
         from app.tasks.hunt_tasks import execute_hunt_task
 
@@ -224,7 +229,7 @@ class HuntService:
         db.refresh(exec_obj)
 
         task = execute_hunt_task.apply_async(
-            args=[hunt_id, exec_obj.id],
+            args=[hunt_id, exec_obj.id, user_id],
             queue="default",
         )
 

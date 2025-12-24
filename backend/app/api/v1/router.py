@@ -7,6 +7,7 @@ from .ws import router as analysis_ws_router
 from .hunt_ws import router as hunt_ws_router
 from .chatbot import router as chatbot_router
 from .threat_hunt import router as threat_hunt_router
+from .home import router as home_router
 
 api_router = APIRouter()
 
@@ -15,6 +16,13 @@ api_router.include_router(
     auth_router,
     prefix="/auth",
     tags=["Auth"]
+)
+
+# Home
+api_router.include_router(
+    home_router,
+    prefix="/home",
+    tags=["Home"]
 )
 
 # Threat Hunting

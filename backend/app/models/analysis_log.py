@@ -25,5 +25,6 @@ class AnalysisLog(Base):
         ForeignKey("log_datasets.id"),
         nullable=False
     )
+    created_by = Column(Integer, nullable = False)
 
     job = relationship("AnalysisJob", backref="logs")

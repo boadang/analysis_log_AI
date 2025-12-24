@@ -1,7 +1,8 @@
-// src/pages/home.jsx
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import getHomeData from "../services/homeApi";
+import { InfoItem } from "../components/InfoItem";
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -9,42 +10,45 @@ export default function HomePage() {
 
   const [stats, setStats] = useState({
     totalLogs: 0,
-    todayAttacks: 0,
-    blockedIPs: 0,
+    detectedThreats: 0,
+    datasets: 0,
     aiScore: 0,
   });
+
   const [recentLogs, setRecentLogs] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
 
-  // Check auth: nếu chưa login → redirect
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
     }
   }, [user, loading, navigate]);
 
-  // Fetch dữ liệu giả lập (sau này thay bằng API thật)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setStats({
-        totalLogs: 125843,
-        todayAttacks: 87,
-        blockedIPs: 42,
-        aiScore: 94.7,
-      });
+    if (!user) return;
 
-      setRecentLogs([
-        { time: "10:23:11", src: "192.168.10.45", dst: "203.0.113.5", action: "block", threat: "Brute Force", ai: 98 },
-        { time: "10:22:58", src: "185.220.101.12", dst: "your-server", action: "block", threat: "Malware C2", ai: 99 },
-        { time: "10:21:34", src: "45.32.158.99", dst: "your-server", action: "allow", threat: "Normal", ai: 12 },
-        { time: "10:20:07", src: "112.45.67.89", dst: "your-server", action: "block", threat: "SQL Injection", ai: 96 },
-      ]);
+    const fetchHomeData = async () => {
+      try {
+        const res = await getHomeData();
+        console.log(res)
 
-      setDataLoading(false);
-    }, 1200);
+        setStats({
+          totalLogs: res.stats.total_logs,
+          detectedThreats: res.stats.detected_threats,
+          datasets: res.stats.datasets,
+          aiScore: res.stats.ai_score,
+        });
 
-    return () => clearTimeout(timer); // cleanup tránh memory leak
-  }, []); // chỉ chạy 1 lần khi mount
+        setRecentLogs(res.recent_logs || []);
+      } catch (err) {
+        console.error("Fetch home data failed", err);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    fetchHomeData();
+  }, [user]);
 
   if (loading || dataLoading) {
     return (
@@ -69,28 +73,63 @@ export default function HomePage() {
           </div>
         </div>
 
+        <div className="max-w-7xl mx-auto px-4 -mt-10 mb-12">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-3">
+              Tổng quan phân tích log tường lửa
+            </h2>
+            <p className="text-gray-600 leading-relaxed">
+              Hệ thống thu thập và phân tích log từ FortiGate Firewall nhằm phát hiện
+              các hành vi bất thường, truy cập trái phép và mối đe dọa bảo mật.
+              Log được xử lý theo thời gian thực và đánh giá mức độ rủi ro bằng mô hình AI.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <InfoItem title="Nguồn log" value="Traffic / Security / System" />
+              <InfoItem title="Cơ chế phân tích" value="Rule-based + AI Model" />
+              <InfoItem title="Thời gian xử lý" value="Near Realtime" />
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-7xl mx-auto px-4 py-12">
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {/* Total Logs */}
-            <StatCard title="Tổng log hôm nay" value={stats.totalLogs.toLocaleString()} iconColor="blue" />
-            {/* Today Attacks */}
-            <StatCard title="Tấn công phát hiện" value={stats.todayAttacks} iconColor="red" />
-            {/* Blocked IPs */}
-            <StatCard title="IP bị chặn" value={stats.blockedIPs} iconColor="orange" />
-            {/* AI Score */}
-            <StatCard title="Độ chính xác AI" value={`${stats.aiScore}%`} iconColor="green" />
+            <StatCard
+              title="Tổng log phân tích"
+              value={stats.totalLogs.toLocaleString()}
+              iconColor="blue"
+            />
+
+            <StatCard
+              title="Mối đe dọa phát hiện"
+              value={stats.detectedThreats}
+              iconColor="red"
+            />
+
+            <StatCard
+              title="Dataset"
+              value={stats.datasets}
+              iconColor="orange"
+            />
+
+            <StatCard
+              title="Độ chính xác AI"
+              value={`${stats.aiScore}%`}
+              iconColor="green"
+            />
           </div>
 
-          {/* Recent Threats Table */}
+          {/* Recent Logs */}
           <RecentLogsTable logs={recentLogs} />
         </div>
-      </div>    
+      </div>
     </>
   );
 }
 
-// Component nhỏ cho Stats Card
+/* ===================== COMPONENTS ===================== */
+
 function StatCard({ title, value, iconColor }) {
   const colors = {
     blue: "bg-blue-100 text-blue-600",
@@ -107,8 +146,18 @@ function StatCard({ title, value, iconColor }) {
           <p className="text-3xl font-bold text-gray-800">{value}</p>
         </div>
         <div className={`p-4 rounded-full ${colors[iconColor]}`}>
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="w-8 h-8"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         </div>
       </div>
@@ -116,41 +165,88 @@ function StatCard({ title, value, iconColor }) {
   );
 }
 
-// Component nhỏ cho Recent Logs Table
 function RecentLogsTable({ logs }) {
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-gray-800">Mối đe dọa gần đây (AI phân tích)</h2>
+        <h2 className="text-xl font-semibold text-gray-800">
+          Log phân tích gần đây
+        </h2>
       </div>
+
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thời gian</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nguồn IP</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hành động</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại tấn công</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Score</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Thời gian
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Nguồn
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Hành động
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Loại đe dọa
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                AI Score
+              </th>
             </tr>
           </thead>
+
           <tbody className="bg-white divide-y divide-gray-200">
+            {logs.length === 0 && (
+              <tr>
+                <td
+                  colSpan={5}
+                  className="px-6 py-4 text-center text-gray-500"
+                >
+                  Chưa có log phân tích
+                </td>
+              </tr>
+            )}
+
             {logs.map((log, i) => (
               <tr key={i} className={log.ai > 90 ? "bg-red-50" : ""}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.time}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-700">{log.src}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs rounded-full ${log.action === "block" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
-                    {log.action}
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  {log.time}
+                </td>
+                <td className="px-6 py-4 text-sm font-mono text-gray-700">
+                  {log.src || "-"}
+                </td>
+                <td className="px-6 py-4">
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      log.action === "block"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-green-100 text-green-800"
+                    }`}
+                  >
+                    {log.action || "unknown"}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{log.threat}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4 text-sm text-gray-700">
+                  {log.threat || "Unknown"}
+                </td>
+                <td className="px-6 py-4">
                   <div className="flex items-center">
                     <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                      <div className={`h-2 rounded-full ${log.ai > 90 ? "bg-red-600" : log.ai > 70 ? "bg-orange-500" : "bg-green-500"}`} style={{ width: `${log.ai}%` }}></div>
+                      <div
+                        className={`h-2 rounded-full ${
+                          log.ai > 90
+                            ? "bg-red-600"
+                            : log.ai > 70
+                            ? "bg-orange-500"
+                            : "bg-green-500"
+                        }`}
+                        style={{ width: `${log.ai || 0}%` }}
+                      ></div>
                     </div>
-                    <span className="text-sm font-medium">{log.ai}%</span>
+                    <span className="text-sm font-medium">
+                      {log.ai || 0}%
+                    </span>
                   </div>
                 </td>
               </tr>

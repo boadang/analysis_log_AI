@@ -3,7 +3,6 @@ import { Routes, Route } from "react-router-dom";
 import AuthPage from './pages/auth';
 import HomePage from './pages/home';
 import JobDetail from './pages/ai_analysis/JobDetail';
-import AIAnalysisPage from "./pages/ai_analysis";
 import ProtectedRoute from './components/ProtectedRoute';
 // import ThreatHuntingPage from './pages/threatHunting';
 import LogsPage from './pages/logs';

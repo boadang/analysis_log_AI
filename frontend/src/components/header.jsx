@@ -32,7 +32,7 @@ export default function Header() {
                     <li><Link to="/" className="hover:text-blue-600 transition-colors">Home</Link></li>
                     <li><Link to="/ai-analysis" className="hover:text-blue-600 transition-colors">AI Analysis</Link></li>
                     <li><Link to="/threat-hunting" className="hover:text-blue-600 transition-colors">Threat Hunting</Link></li>
-                    <li><Link to="/logs" className="hover:text-blue-600 transition-colors">Logs</Link></li>
+                    {/* <li><Link to="/logs" className="hover:text-blue-600 transition-colors">Logs</Link></li> */}
                     <li><Link to="/settings" className="hover:text-blue-600 transition-colors">Settings</Link></li>
                 </ul>
 

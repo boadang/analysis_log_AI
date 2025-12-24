@@ -36,3 +36,20 @@ class LogParser:
         Parse một batch log
         """
         return [LogParser.parse(line, firewall_type) for line in logs]
+
+    @staticmethod
+    def parse_raw_log(raw_log: str):
+        if not raw_log:
+            return {}
+
+        return {
+            "time": re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", raw_log).group(0)
+                if re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", raw_log) else None,
+            "action": re.search(r"action=(\w+)", raw_log).group(1)
+                if re.search(r"action=(\w+)", raw_log) else "unknown",
+            "src": re.search(r"src=([\d\.]+)", raw_log).group(1)
+                if re.search(r"src=([\d\.]+)", raw_log) else None,
+            "threat": "Firewall Event"
+        }
+        
+logParser = LogParser()

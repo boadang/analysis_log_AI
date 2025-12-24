@@ -20,7 +20,7 @@ from app.core.redis_ws_bridge import publish_to_hunt
     autoretry_for=(Exception,),
     retry_kwargs={"max_retries": 3, "countdown": 10},
 )
-def execute_hunt_task(self, hunt_id: int, execution_id: int):
+def execute_hunt_task(self, hunt_id: int, execution_id: int, user_id: int):
     db = SessionLocal()
     service = HuntService()
 
@@ -43,14 +43,14 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int):
         # ===============================
         # LOAD LOGS
         # ===============================
-        logs = service.get_analysis_logs(db, hunt_id)
+        logs = service.get_analysis_logs(db, hunt_id, user_id)
         raw_logs: List[str] = [l.raw_log for l in logs]
 
         total = len(raw_logs)
         _ws_progress(hunt_id, 0, total)
 
         if total == 0:
-            _finish(db, service, execution, hunt_id)
+            _finish(db, service, execution, hunt_id, user_id)
             return
 
         # ===============================
@@ -115,7 +115,7 @@ def execute_hunt_task(self, hunt_id: int, execution_id: int):
             processed += len(batch)
             _ws_progress(hunt_id, processed, total)
 
-        _finish(db, service, execution, hunt_id)
+        _finish(db, service, execution, hunt_id, user_id)
 
     except Exception as e:
         _fail(db, execution, hunt_id, str(e))
@@ -167,7 +167,7 @@ def _ws_completed(hunt_id: int, summary: dict):
     })
 
 
-def _finish(db, service, execution, hunt_id: int):
+def _finish(db, service, execution, hunt_id: int, user_id:int):
     execution.status = "completed"
     execution.finished_at = datetime.utcnow()
     hunt = service._get_hunt_or_404(db, hunt_id)
@@ -179,7 +179,7 @@ def _finish(db, service, execution, hunt_id: int):
     detected = len([f for f in items if f.severity and f.severity != "low"])
 
     _ws_completed(hunt_id, {
-        "total_logs": len(service.get_analysis_logs(db, hunt_id)),
+        "total_logs": len(service.get_analysis_logs(db, hunt_id,user_id)),
         "detected_threats": detected,
     })
 

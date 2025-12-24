@@ -38,7 +38,7 @@ def list_log_datasets(
     """
     Lấy danh sách tất cả log datasets có sẵn để chọn khi tạo hunt
     """
-    datasets = hunt_service.get_dataset_logs(db)
+    datasets = hunt_service.get_dataset_logs(db, current_user)
     # Trả về dạng list dict đơn giản, hoặc bạn có thể tạo schema riêng nếu cần
     return [
         {
@@ -103,10 +103,10 @@ def save_hypothesis(
 # 6. Execute hunt
 # ---------------------------
 @router.post("/{hunt_id}/execute")
-def execute_hunt(hunt_id: int, data: HuntExecutionCreate, db: Session = Depends(get_db)):
+def execute_hunt(hunt_id: int, data: HuntExecutionCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     try: 
         print(HuntExecution.__table__.columns.keys())
-        exec_obj = hunt_service.create_execution(db, hunt_id, data.model_dump())
+        exec_obj = hunt_service.create_execution(db, hunt_id, data.model_dump(), user_id=user.id)
         return {"hunt_id": hunt_id, "execution_id": exec_obj.id, "status": exec_obj.status}
     except NoResultFound:
         raise HTTPException(status_code=404, detail="Hunt not found")

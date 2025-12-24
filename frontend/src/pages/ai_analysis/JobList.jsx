@@ -10,14 +10,10 @@ export default function JobList() {
   const [error, setError] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   
-  // Track if component is mounted
-  const isMountedRef = useRef(true);
-  
-  // Track previous jobs to prevent unnecessary re-renders
+  const isMountedRef = useRef(true);  
   const prevJobsRef = useRef([]);
 
   const loadJobs = useCallback(async () => {
-    // Don't show loading spinner on background refreshes
     const isInitialLoad = jobs.length === 0;
     if (isInitialLoad) setLoading(true);
     
@@ -26,10 +22,8 @@ export default function JobList() {
     try {
       const data = await fetchJobs();
       
-      // Only update if component is still mounted
       if (!isMountedRef.current) return;
       
-      // Check if data actually changed to prevent unnecessary re-renders
       const dataChanged = JSON.stringify(data) !== JSON.stringify(prevJobsRef.current);
       
       if (dataChanged) {
@@ -45,31 +39,27 @@ export default function JobList() {
         setLoading(false);
       }
     }
-  }, [jobs.length]); // Only recreate if jobs.length changes
+  }, [jobs.length]);
 
   useEffect(() => {
     isMountedRef.current = true;
     loadJobs();
     
-    // Polling interval - only if page is visible
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         loadJobs();
       }
-    }, 10000); // Increased from 5s to 10s to reduce load
-    
+    }, 10000);
     return () => {
       isMountedRef.current = false;
       clearInterval(interval);
     };
   }, [loadJobs]);
 
-  // Memoized filtered jobs to prevent recalculation
   const filteredJobs = useMemo(() => {
     return jobs.filter(j => filterStatus === "all" || j.status === filterStatus);
   }, [jobs, filterStatus]);
 
-  // Count by status (memoized)
   const statusCounts = useMemo(() => {
     const counts = { all: jobs.length, queued: 0, running: 0, completed: 0, failed: 0 };
     jobs.forEach(j => {
@@ -80,7 +70,6 @@ export default function JobList() {
     return counts;
   }, [jobs]);
 
-  // Initial loading state
   if (loading && jobs.length === 0) {
     return (
       <div className="max-w-6xl mx-auto p-6">
@@ -135,7 +124,7 @@ export default function JobList() {
             onClick={loadJobs} 
             className="ml-auto px-3 py-2 border rounded text-sm hover:bg-gray-50 transition flex-shrink-0"
           >
-            🔄 Refresh
+            Refresh
           </button>
         </div>
 
