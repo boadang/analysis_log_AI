@@ -29,7 +29,7 @@ export default function ExecutePanel({ disabled, execution, onExecute, onPause, 
       {/* Configuration */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Mode */}
-        <div>
+        <div>+
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Execution Mode *
           </label>
