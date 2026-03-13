@@ -31,8 +31,6 @@ export default function JobDetail() {
     total_logs: null,
     detected_threats: null
   });
-
-  // 🔥 Track if job is completed to prevent reset
   const isCompletedRef = useRef(false);
 
   /* -------------------------
@@ -46,9 +44,6 @@ export default function JobDetail() {
       setJob(data);
       
       console.log("[JobDetail] Loaded job from DB:", data.status);
-      
-      // 🔥 FIX: Only reset wsPatch if job is actually completed in DB
-      // Don't reset if we just received completed message
       if (data.status === "completed" || data.status === "failed") {
         console.log("[JobDetail] Job finished in DB, keeping final state");
         isCompletedRef.current = true;
@@ -85,7 +80,6 @@ export default function JobDetail() {
    * Enable WS only if running
    * ------------------------- */
   const enableWS = useMemo(() => {
-    // 🔥 FIX: Check BOTH job status and wsPatch status
     const jobStatus = job?.status;
     const patchStatus = wsPatch.status;
     const effectiveStatus = patchStatus || jobStatus;
@@ -143,10 +137,10 @@ export default function JobDetail() {
         break;
 
       case "completed":
-        console.log("[JobDetail] 🎉 Job COMPLETED message received!");
+        console.log("[JobDetail] Job COMPLETED message received!");
         console.log("[JobDetail] Completed data:", lastMessage);
         
-        // 🔥 FIX: Mark as completed IMMEDIATELY
+        // FIX: Mark as completed IMMEDIATELY
         isCompletedRef.current = true;
         
         setWsPatch(p => {
@@ -162,7 +156,7 @@ export default function JobDetail() {
           return newPatch;
         });
         
-        // 🔥 FIX: Load job with longer delay to ensure DB commit
+        // FIX: Load job with longer delay to ensure DB commit
         console.log("[JobDetail] Scheduling DB sync in 2 seconds...");
         setTimeout(() => {
           console.log("[JobDetail] Loading final job state from DB...");
