@@ -19,7 +19,7 @@ export function useJobWS(jobId) {
     const token = localStorage.getItem("authToken");
     
     if (!token || token === "null" || token === "undefined") {
-      console.error("[WS] ❌ No valid token");
+      console.error("[WS] No valid token");
       return;
     }
 
@@ -30,9 +30,9 @@ export function useJobWS(jobId) {
 
     ws.onopen = () => {
       setConnected(true);
-      console.log(`[WS] ✅ Connected to job=${jobId}`);
+      console.log(`[WS] Connected to job=${jobId}`);
       
-      // 🔥 Send ping every 25 seconds to keep connection alive
+      // Send ping every 25 seconds to keep connection alive
       pingIntervalRef.current = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send("ping");
@@ -67,12 +67,12 @@ export function useJobWS(jobId) {
           }
         }
       } catch (e) {
-        console.error(`[WS] ❌ Parse error:`, e);
+        console.error(`[WS] Parse error:`, e);
       }
     };
 
     ws.onerror = (err) => {
-      console.error(`[WS] ❌ Error:`, err);
+      console.error(`[WS] Error:`, err);
     };
 
     ws.onclose = (event) => {
@@ -92,10 +92,10 @@ export function useJobWS(jobId) {
         logBufferRef.current = [];
       }
 
-      console.log(`[WS] 🔌 Disconnected code=${event.code} reason=${event.reason}`);
+      console.log(`[WS] Disconnected code=${event.code} reason=${event.reason}`);
       
       if (event.code === 4001) {
-        console.error("[WS] ❌ Auth failed. Please login again.");
+        console.error("[WS] Auth failed. Please login again.");
       }
     };
   }, [jobId]);

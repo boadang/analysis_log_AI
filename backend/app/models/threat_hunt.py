@@ -11,9 +11,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-
 from .base import Base
-
 
 # ======================================================
 # HUNT SESSION (ROOT ENTITY)
@@ -36,9 +34,6 @@ class HuntSession(Base):
 
     time_range_start = Column(DateTime, nullable=False)
     time_range_end = Column(DateTime, nullable=False)
-
-    # data_sources = Column(JSONB, nullable=True)
-    # raw_logs = Column(JSONB)
 
     status = Column(
         Enum(
