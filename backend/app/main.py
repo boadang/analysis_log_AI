@@ -5,34 +5,34 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.api.v1.router import api_router
-from app.core.ws_manager import job_ws_manager          # AI Analysis
-from app.core.hunt_ws_manager import ws_manager         # Threat Hunt
+from app.core.ws_manager import job_ws_manager         
+from app.core.hunt_ws_manager import ws_manager         
 from app.database.postgres import SessionLocal
 from sqlalchemy import text
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("[APP] 🚀 Starting up...")
+    print("[APP] Starting up...")
 
     # ===============================
     # Start Redis listeners
     # ===============================
     await job_ws_manager.start_redis_listener()
-    print("[APP] ✅ AI Analysis WS listener started")
+    print("[APP] AI Analysis WS listener started")
 
     await ws_manager.start_redis_listener()
-    print("[APP] ✅ Threat Hunt WS listener started")
+    print("[APP] Threat Hunt WS listener started")
 
     yield
 
     # ===============================
     # Shutdown
     # ===============================
-    print("[APP] 🛑 Shutting down...")
+    print("[APP] Shutting down...")
     await job_ws_manager.stop_redis_listener()
     await ws_manager.stop_redis_listener()
-    print("[APP] ✅ All listeners stopped")
+    print("[APP] All listeners stopped")
 
 
 app = FastAPI(
@@ -72,9 +72,9 @@ try:
     db = SessionLocal()
     db.execute(text("SELECT 1"))
     db.close()
-    print("✅ Database connection successful.")
+    print("Database connection successful.")
 except Exception as e:
-    print(f"❌ Database connection failed: {e}")
+    print(f"Database connection failed: {e}")
 
 
 @app.get("/")
