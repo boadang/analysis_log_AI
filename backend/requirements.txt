@@ -4,7 +4,6 @@ uvicorn[standard]==0.31.0
 python-multipart==0.0.12
 
 # --- Database - SQL (PostgreSQL) ---
-# SQLAlchemy 2.0 hoạt động cực mượt trên Python 3.12
 sqlalchemy==2.0.35
 asyncpg==0.30.0
 psycopg2-binary==2.9.9
@@ -15,12 +14,12 @@ motor==3.6.0
 pymongo==4.9.1
 
 # --- Auth & Security ---
-# Quan trọng: bcrypt 4.0.1 giúp tránh lỗi với passlib trên Python 3.12
 bcrypt==4.0.1
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
 fastapi-users[sqlalchemy2]==13.0.0
-email-validator==2.2.0
+# ĐÃ SỬA: Hạ xuống bản < 2.2 để khớp với fastapi-users
+email-validator>=1.1.0,<2.2.0
 
 # --- AI - Ollama ---
 ollama==0.3.3
