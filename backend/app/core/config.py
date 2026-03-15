@@ -1,5 +1,7 @@
 # backend/app/core/config.py
+from alembic.environment import Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 class Settings(BaseSettings):
     POSTGRES_USER: str
@@ -29,7 +31,8 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
     # Thêm validator để ép kiểu từ string sang int nếu Railway truyền nhầm
-    @validator('POSTGRES_PORT', pre=True)
+    @field_validator('POSTGRES_PORT', mode='before')
+    @classmethod
     def assemble_port(cls, v: Any) -> int:
         if isinstance(v, str) and v.startswith('$'):
             # Nếu vẫn là biến dạng ${...}, bạn cần nhập số trực tiếp trong Railway
