@@ -28,6 +28,14 @@ class Settings(BaseSettings):
         extra="ignore",
         case_sensitive=False,
     )
+    # Thêm validator để ép kiểu từ string sang int nếu Railway truyền nhầm
+    @validator('POSTGRES_PORT', pre=True)
+    def assemble_port(cls, v: Any) -> int:
+        if isinstance(v, str) and v.startswith('$'):
+            # Nếu vẫn là biến dạng ${...}, bạn cần nhập số trực tiếp trong Railway
+            # Đây là cảnh báo để bạn biết cần nhập giá trị số
+            raise ValueError(f"Biến POSTGRES_PORT đang là {v}, vui lòng nhập giá trị số trực tiếp trong tab Variables")
+        return int(v)
 
     def __post_init__(self):
         # Nếu không khai báo -> auto tạo
