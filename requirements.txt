@@ -14,11 +14,11 @@ motor>=3.6.0
 pymongo>=4.9.1
 
 # --- Auth & Security ---
-# Chỉnh bcrypt lên đúng bản mà pwdlib yêu cầu để hết xung đột
+# Chấp nhận bản 4.1.2 để làm hài lòng pwdlib/fastapi-users
 bcrypt==4.1.2
-passlib==1.7.4
+passlib[bcrypt]>=1.7.4
 python-jose[cryptography]==3.3.0
-# Lưu ý: Bỏ số 2 ở [sqlalchemy], bản mới dùng [sqlalchemy]
+# Lưu ý: FastAPI Users 13.x dùng extra [sqlalchemy] thay vì [sqlalchemy2]
 fastapi-users[sqlalchemy]==13.0.0
 email-validator>=1.1.0,<2.2.0
 
