@@ -32,7 +32,7 @@ jinja2==3.1.4
 python-dotenv==1.0.1
 loguru==0.7.2
 pydantic-settings==2.5.2
-email-validator==2.1.0
+email-validator==2.1.1
 
 # Optional: parser log (nếu không tự viết)
 # fortigate-log-parser==0.2.3
