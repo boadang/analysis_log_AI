@@ -1,0 +1,39 @@
+# Web Framework & Server
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.12  # Cập nhật bản mới hơn để tránh lỗi bảo mật
+
+# Database - SQL (PostgreSQL)
+sqlalchemy==2.0.35
+asyncpg==0.30.0           # Cập nhật nhẹ để tối ưu performance
+psycopg2-binary==2.9.9
+alembic==1.13.3
+
+# Database - NoSQL (MongoDB)
+motor==3.6.0
+pymongo==4.9.1
+
+# Auth & Security
+# Lưu ý: Nếu cài bcrypt bị lỗi, hãy dùng: pip install bcrypt==4.0.1
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+fastapi-users[sqlalchemy2]==13.0.0
+email-validator==2.2.0
+
+# AI - Ollama
+ollama==0.3.3
+
+# Task Queues & Cache
+redis==5.0.8
+celery[redis]==5.4.0
+flower==2.0.1
+
+# Document Generation (PDF/HTML)
+jinja2==3.1.4
+weasyprint==63.0          # Cập nhật bản ổn định mới nhất
+
+# Utilities
+python-dotenv==1.0.1
+loguru==0.7.2
+pydantic==2.9.2           # Đảm bảo core pydantic đồng bộ
+pydantic-settings==2.5.2
