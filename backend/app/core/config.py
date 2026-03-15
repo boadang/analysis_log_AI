@@ -1,62 +1,63 @@
-# backend/app/core/config.py
-from alembic.environment import Any
+from typing import Any
+from pydantic import field_validator, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
 
 class Settings(BaseSettings):
+    # --- Database Settings ---
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
-    OLLAMA_MODEL: str = "qwen3:8b"
     
+    # --- Redis Settings ---
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
+    REDIS_DB_RS: int = 1
 
-    CELERY_BROKER_URL: str | None = None
-    CELERY_RESULT_BACKEND: str | None = None
-
-    DATABASE_URL: str | None = None
-
+    # --- Auth & Security ---
     JWT_SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ENVIRONMENT: str = "development"
 
+    # --- Ollama ---
+    OLLAMA_MODEL: str = "qwen3:8b"
+    OLLAMA_API_URL: str = "http://localhost:11434/api/generate"
+
+    # --- Pydantic Config ---
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
     )
-    # Thêm validator để ép kiểu từ string sang int nếu Railway truyền nhầm
-    @field_validator('POSTGRES_PORT', mode='before')
+
+    # Validate cổng để tránh lỗi string -> int
+    @field_validator('POSTGRES_PORT', 'REDIS_PORT', mode='before')
     @classmethod
-    def assemble_port(cls, v: Any) -> int:
-        if isinstance(v, str) and v.startswith('$'):
-            # Nếu vẫn là biến dạng ${...}, bạn cần nhập số trực tiếp trong Railway
-            # Đây là cảnh báo để bạn biết cần nhập giá trị số
-            raise ValueError(f"Biến POSTGRES_PORT đang là {v}, vui lòng nhập giá trị số trực tiếp trong tab Variables")
-        return int(v)
+    def parse_port(cls, v: Any) -> int:
+        if isinstance(v, str):
+            # Nếu Railway truyền dạng ${VAR}, ta phải xử lý hoặc báo lỗi
+            if v.startswith('$'):
+                raise ValueError(f"Biến môi trường đang bị lỗi format: {v}. Vui lòng nhập số trực tiếp trong Railway.")
+            return int(v)
+        return v
 
-    def __post_init__(self):
-        # Nếu không khai báo -> auto tạo
-        if not self.DATABASE_URL:
-            self.DATABASE_URL = (
-                f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-            )
+    # --- Computed URLs (Được tạo tự động từ các biến trên) ---
+    @computed_field
+    @property
+    def DATABASE_URL(self) -> str:
+        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
-        # Nếu broker chưa set → dùng SQLite
-        if not self.CELERY_BROKER_URL:
-            self.CELERY_BROKER_URL = "sqla+sqlite:///./celery_broker.db"
+    @computed_field
+    @property
+    def CELERY_BROKER_URL(self) -> str:
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
-        # Result backend vẫn dùng PostgreSQL
-        if not self.CELERY_RESULT_BACKEND:
-            self.CELERY_RESULT_BACKEND = (
-                f"db+postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-                f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-            )
+    @computed_field
+    @property
+    def CELERY_RESULT_BACKEND(self) -> str:
+        return f"db+postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 settings = Settings()
