@@ -1,41 +1,40 @@
 # --- Web Framework & Server ---
 fastapi==0.115.0
-uvicorn[standard]==0.31.0
-# ĐÃ SỬA: Hạ xuống 0.0.9 để khớp với fastapi-users 13.0.0
+uvicorn[standard]>=0.30.0
 python-multipart==0.0.9
 
 # --- Database - SQL (PostgreSQL) ---
 sqlalchemy==2.0.35
-asyncpg==0.30.0
-psycopg2-binary==2.9.9
-alembic==1.13.3
+asyncpg>=0.29.0
+psycopg2-binary>=2.9.9
+alembic>=1.13.0
 
 # --- Database - NoSQL (MongoDB) ---
-motor==3.6.0
-pymongo==4.9.1
+motor>=3.6.0
+pymongo>=4.9.0
 
 # --- Auth & Security ---
-bcrypt==4.0.1
-passlib[bcrypt]==1.7.4
+# Để trống phiên bản để pip tự khớp bcrypt cho cả passlib và pwdlib
+bcrypt
+passlib[bcrypt]
 python-jose[cryptography]==3.3.0
-fastapi-users[sqlalchemy2]==13.0.0
-# ĐÃ SỬA: Đảm bảo bản < 2.2
+fastapi-users[sqlalchemy]==13.0.0
 email-validator>=1.1.0,<2.2.0
 
 # --- AI - Ollama ---
-ollama==0.3.3
+ollama>=0.3.3
 
 # --- Task Queues & Cache ---
-redis==5.0.8
-celery[redis]==5.4.0
-flower==2.0.1
+redis>=5.0.0
+celery[redis]>=5.4.0
+flower>=2.0.0
 
 # --- Document Generation (PDF/HTML) ---
-jinja2==3.1.4
-weasyprint==63.0
+jinja2>=3.1.0
+weasyprint>=62.0
 
 # --- Utilities ---
 python-dotenv==1.0.1
-loguru==0.7.2
-pydantic==2.9.2
-pydantic-settings==2.5.2
+loguru>=0.7.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
